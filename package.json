@@ -1,0 +1,22 @@
+{
+  "name": "techassess-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev:api\" \"npm run dev:web\"",
+    "dev:api": "npm run --workspace=apps/api dev",
+    "dev:web": "npm run --workspace=apps/web dev",
+    "build": "npm run --workspace=packages/shared build && npm run --workspace=apps/api build && npm run --workspace=apps/web build",
+    "test": "npm run --workspace=apps/api test",
+    "seed": "npm run --workspace=apps/api seed",
+    "create-admin": "npm run --workspace=apps/api create-admin"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2",
+    "typescript": "^5.4.5"
+  }
+}
