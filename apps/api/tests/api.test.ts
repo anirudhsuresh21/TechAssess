@@ -134,7 +134,7 @@ Valid Q,What is 2+2?,NUMERICAL_APTITUDE,Math,EASY,SINGLE_CHOICE,3;4;5,2,1
 Broken Q,No,INVALID_CAT,Math,EASY,SINGLE_CHOICE,A;B,1,1`;
 
       const res = await request(app)
-        .post('/api/v1/questions/validate-import')
+        .post('/api/v1/questions/import/validate')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({ csvContent: invalidCsv });
 
@@ -142,6 +142,21 @@ Broken Q,No,INVALID_CAT,Math,EASY,SINGLE_CHOICE,A;B,1,1`;
       expect(res.body.data.validCount).toBe(1);
       expect(res.body.data.errorCount).toBeGreaterThanOrEqual(1);
       expect(res.body.data.errors[0].row).toBe(3);
+    });
+
+    it('should support /import/commit with skipErrors and pipe delimiters', async () => {
+      const pipeCsv = `title,text,category,topic,difficulty,type,options,correctOptions,marks
+Bulk Pipe Question,What is 10 + 20?,NUMERICAL_APTITUDE,Arithmetic,EASY,SINGLE_CHOICE,"10|20|30|40",30,1
+Bad Row,Short,INVALID_CAT,None,EASY,SINGLE_CHOICE,"A|B",A,1`;
+
+      const res = await request(app)
+        .post('/api/v1/questions/import/commit')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ csvContent: pipeCsv, skipErrors: true });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.insertedCount).toBe(1);
+      expect(res.body.data.importedCount).toBe(1);
     });
   });
 

@@ -184,9 +184,11 @@ export function parseAndValidateQuestions(csvContent: string): {
       });
     }
 
-    // Parse options & correct options
-    const rawOptions = row.options ? row.options.split(';').map((s: string) => s.trim()).filter(Boolean) : [];
-    const rawCorrect = row.correctOptions ? row.correctOptions.split(';').map((s: string) => s.trim()) : [];
+    // Parse options & correct options (supports both ';' and '|' delimiters)
+    const optDelim = (row.options && row.options.includes('|') && !row.options.includes(';')) ? '|' : ';';
+    const rawOptions = row.options ? row.options.split(optDelim).map((s: string) => s.trim()).filter(Boolean) : [];
+    const correctDelim = (row.correctOptions && row.correctOptions.includes('|') && !row.correctOptions.includes(';')) ? '|' : ';';
+    const rawCorrect = row.correctOptions ? row.correctOptions.split(correctDelim).map((s: string) => s.trim()) : [];
 
     const isChoiceType =
       row.type === QuestionType.SINGLE_CHOICE ||

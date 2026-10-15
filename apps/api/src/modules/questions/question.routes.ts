@@ -22,7 +22,9 @@ const upload = multer({
 });
 
 router.get('/template', downloadTemplateHandler);
+router.post('/import/validate', requireAuth, upload.single('file'), validateImportHandler);
 router.post('/validate-import', requireAuth, upload.single('file'), validateImportHandler);
+router.post('/import/commit', requireAuth, upload.single('file'), importQuestionsHandler);
 router.post('/import', requireAuth, upload.single('file'), importQuestionsHandler);
 
 router.post('/', requireAuth, validateBody(CreateQuestionSchema), createQuestionHandler);

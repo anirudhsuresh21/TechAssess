@@ -35,4 +35,15 @@ async function startServer() {
   }
 }
 
-startServer();
+// When running locally, start HTTP listener. When running on Vercel, export app handler.
+if (!process.env.VERCEL) {
+  startServer();
+} else {
+  // Connect database on cold start in serverless environment
+  connectDatabase().catch((err) => {
+    logger.error('Failed to connect to database in serverless init', { error: err.message });
+  });
+}
+
+export default app;
+export { app };

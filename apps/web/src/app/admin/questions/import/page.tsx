@@ -165,15 +165,27 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
         </div>
 
         {/* Or Paste CSV raw text */}
-        <div>
-          <button
-            type="button"
-            onClick={() => validateContent(csvContent)}
-            disabled={!csvContent || isValidating}
-            className="text-xs text-orange-600 hover:underline font-semibold"
-          >
-            {isValidating ? 'Validating...' : 'Validate CSV Content'}
-          </button>
+        <div className="pt-2 border-t border-slate-100 text-left space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-semibold text-slate-700">
+              Or paste CSV content directly:
+            </label>
+            <button
+              type="button"
+              onClick={() => validateContent(csvContent)}
+              disabled={!csvContent.trim() || isValidating}
+              className="px-3 py-1.5 rounded-lg bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-xs font-semibold transition shadow-sm"
+            >
+              {isValidating ? 'Validating...' : 'Validate CSV Content'}
+            </button>
+          </div>
+          <textarea
+            value={csvContent}
+            onChange={(e) => setCsvContent(e.target.value)}
+            rows={5}
+            placeholder="title,text,category,topic,difficulty,type,options,correctOptions,marks,negativeMarks,explanation,numericalAnswer"
+            className="w-full text-xs font-mono p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
+          />
         </div>
       </div>
 

@@ -109,8 +109,8 @@ export async function validateImportHandler(req: Request, res: Response, next: N
     let content = '';
     if (req.file) {
       content = req.file.buffer.toString('utf-8');
-    } else if (req.body && req.body.csvContent) {
-      content = req.body.csvContent;
+    } else if (req.body && (req.body.csvContent || req.body.content || req.body.csv)) {
+      content = req.body.csvContent || req.body.content || req.body.csv;
     } else {
       throw new AppError('No CSV content or file provided for import validation', 400);
     }
@@ -136,14 +136,15 @@ export async function importQuestionsHandler(req: Request, res: Response, next: 
     let content = '';
     if (req.file) {
       content = req.file.buffer.toString('utf-8');
-    } else if (req.body && req.body.csvContent) {
-      content = req.body.csvContent;
+    } else if (req.body && (req.body.csvContent || req.body.content || req.body.csv)) {
+      content = req.body.csvContent || req.body.content || req.body.csv;
     } else if (Array.isArray(req.body.questions)) {
       const inserted = await bulkInsertQuestions(req.body.questions, req.user?.userId, req.ip);
       return res.status(201).json({
         success: true,
         data: {
           insertedCount: inserted.length,
+          importedCount: inserted.length,
           inserted,
         },
       });
@@ -152,10 +153,12 @@ export async function importQuestionsHandler(req: Request, res: Response, next: 
     }
 
     const { validQuestions, errors } = parseAndValidateQuestions(content);
-    if (errors.length > 0 && !req.body.ignoreErrors) {
+    const allowPartial = Boolean(req.body.ignoreErrors || req.body.skipErrors);
+
+    if (errors.length > 0 && !allowPartial) {
       return res.status(400).json({
         success: false,
-        error: `Import file contains ${errors.length} validation errors. Fix them or pass ignoreErrors=true to import valid rows only.`,
+        error: `Import file contains ${errors.length} validation errors. Fix them or enable importing valid rows only.`,
         errors,
       });
     }
@@ -169,6 +172,7 @@ export async function importQuestionsHandler(req: Request, res: Response, next: 
       success: true,
       data: {
         insertedCount: inserted.length,
+        importedCount: inserted.length,
         errorsCount: errors.length,
         inserted,
       },

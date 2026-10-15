@@ -6,6 +6,10 @@ import { logger } from '../utils/logger';
 let mongoMemoryServer: MongoMemoryServer | null = null;
 
 export async function connectDatabase(): Promise<void> {
+  if (mongoose.connection.readyState === 1) {
+    return;
+  }
+
   let uri = config.mongodbUri;
 
   if (!uri) {
