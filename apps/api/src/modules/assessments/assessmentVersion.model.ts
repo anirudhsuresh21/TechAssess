@@ -28,6 +28,13 @@ export interface IAssessmentVersionSnapshot {
   allowRetake: boolean;
   codingEnabled: boolean;
   unansweredZeroMarks: boolean;
+  setsEnabled?: boolean;
+  sets?: Array<{
+    setCode: string;
+    name: string;
+    description?: string;
+    sections: IVersionSectionSnapshot[];
+  }>;
   integritySettings: IAssessmentIntegritySettings;
   sections: IVersionSectionSnapshot[];
 }

@@ -17,25 +17,25 @@ export default function AuditLogsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-          <History className="w-6 h-6 text-indigo-400" />
+        <h1 className="text-2xl font-bold tracking-tight text-[#06111f] flex items-center gap-2">
+          <History className="w-6 h-6 text-[#f37021]" />
           System Audit Logs
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
+        <p className="text-xs text-slate-500 mt-1">
           Immutable trail of administrative actions, assessment publishing, and qualification changes.
         </p>
       </div>
 
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
         {isLoading ? (
           <div className="py-12 text-center text-xs text-slate-500">Loading audit records...</div>
         ) : logs.length === 0 ? (
-          <div className="py-12 text-center text-xs text-slate-400">No audit logs recorded yet.</div>
+          <div className="py-12 text-center text-xs text-slate-500">No audit logs recorded yet.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-medium">
+                <tr className="border-b border-slate-200 text-slate-500 font-semibold">
                   <th className="pb-3">Timestamp</th>
                   <th className="pb-3">Administrator</th>
                   <th className="pb-3">Action</th>
@@ -44,32 +44,32 @@ export default function AuditLogsPage() {
                   <th className="pb-3">IP Address</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono">
+              <tbody className="divide-y divide-slate-100 font-mono">
                 {logs.map((log: any) => (
-                  <tr key={log._id} className="hover:bg-slate-800/20 transition">
-                    <td className="py-3 text-slate-400">
+                  <tr key={log._id} className="hover:bg-slate-50 transition">
+                    <td className="py-3 text-slate-500">
                       {formatDateTime(log.createdAt)}
                     </td>
                     <td className="py-3 font-sans">
-                      <div className="font-medium text-slate-200">
+                      <div className="font-semibold text-slate-900">
                         {log.userEmail || 'System'}
                       </div>
-                      <div className="text-[10px] text-indigo-400">{log.role || 'Super Admin'}</div>
+                      <div className="text-[10px] text-orange-600 font-mono font-bold">{log.role || 'Super Admin'}</div>
                     </td>
                     <td className="py-3">
-                      <span className="px-2 py-0.5 rounded bg-indigo-950/70 border border-indigo-800/50 text-indigo-300 text-[10px]">
+                      <span className="px-2 py-0.5 rounded bg-orange-50 border border-orange-200 text-orange-700 text-[10px] font-bold">
                         {log.action}
                       </span>
                     </td>
-                    <td className="py-3 text-slate-300">
+                    <td className="py-3 text-slate-700">
                       {log.resourceType}{' '}
                       {log.resourceId && (
-                        <span className="text-slate-500 text-[10px]">
+                        <span className="text-slate-400 text-[10px]">
                           ({log.resourceId.slice(-6)})
                         </span>
                       )}
                     </td>
-                    <td className="py-3 text-[11px] font-sans text-slate-400 max-w-xs truncate">
+                    <td className="py-3 text-[11px] font-sans text-slate-600 max-w-xs truncate">
                       {JSON.stringify(log.details || {})}
                     </td>
                     <td className="py-3 text-slate-500 text-[11px]">

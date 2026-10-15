@@ -15,6 +15,8 @@ import {
   Award,
   ShieldAlert,
   HelpCircle,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { QuestionCategory } from '@techassess/shared';
@@ -40,7 +42,11 @@ export default function CreateAssessmentPage() {
   const [allowReviewAnswers, setAllowReviewAnswers] = useState(true);
   const [maxFocusLossCount, setMaxFocusLossCount] = useState(3);
 
-  // Sections
+  // Sets Configuration (Dual Competitive Exam Rollout)
+  const [setsEnabled, setSetsEnabled] = useState(true);
+  const [activeSetTab, setActiveSetTab] = useState<'A' | 'B'>('A');
+
+  // Sections (Set A base)
   const [sections, setSections] = useState<
     Array<{
       name: string;
@@ -65,6 +71,17 @@ export default function CreateAssessmentPage() {
       questionIds: [],
     },
   ]);
+
+  // Set B sections (can be customized or auto-balanced)
+  const [setBSections, setSetBSections] = useState<
+    Array<{
+      name: string;
+      category: string;
+      description: string;
+      timeLimitMinutes?: number;
+      questionIds: string[];
+    }>
+  >([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -108,15 +125,16 @@ export default function CreateAssessmentPage() {
     );
   };
 
-  const handleSubmit = async (publishDirectly = false) => {
+  const handleSubmit = async (publishDirectly: boolean = false) => {
     setError('');
 
-    if (!title.trim()) {
-      setError('Assessment title is required');
+    if (!title.trim() || !code.trim()) {
+      setError('Title and examination access code are required.');
       return;
     }
-    if (!code.trim()) {
-      setError('Examination access code is required');
+
+    if (sections.length === 0) {
+      setError('You must add at least one question section.');
       return;
     }
 
@@ -129,6 +147,36 @@ export default function CreateAssessmentPage() {
     setIsLoading(true);
 
     try {
+      // Build Sets A and B payloads
+      const setsPayload = setsEnabled
+        ? [
+            {
+              setCode: 'A',
+              name: 'Set A',
+              description: 'Primary Recruitment Question Paper (Set A)',
+              sections: sections.map((s) => ({
+                name: s.name,
+                category: s.category,
+                description: s.description,
+                timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
+                questionIds: s.questionIds,
+              })),
+            },
+            {
+              setCode: 'B',
+              name: 'Set B',
+              description: 'Alternate Balanced Recruitment Question Paper (Set B)',
+              sections: (setBSections.length > 0 ? setBSections : sections).map((s) => ({
+                name: s.name,
+                category: s.category,
+                description: s.description,
+                timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
+                questionIds: [...s.questionIds].reverse(),
+              })),
+            },
+          ]
+        : [];
+
       const assessmentData = {
         title,
         description,
@@ -143,6 +191,8 @@ export default function CreateAssessmentPage() {
         randomizeOptions,
         showResultsImmediately,
         allowReviewAnswers,
+        setsEnabled,
+        sets: setsPayload,
         sections: sections.map((s) => ({
           name: s.name,
           category: s.category,
@@ -180,36 +230,36 @@ export default function CreateAssessmentPage() {
       <div>
         <Link
           href="/admin/assessments"
-          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           <span>Back to Examinations</span>
         </Link>
-        <h1 className="text-2xl font-bold tracking-tight text-white mt-2 flex items-center gap-2">
-          <FileCheck2 className="w-6 h-6 text-indigo-400" />
+        <h1 className="text-2xl font-bold tracking-tight text-[#06111f] mt-2 flex items-center gap-2">
+          <FileCheck2 className="w-6 h-6 text-[#f37021]" />
           Create New Examination
         </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Configure timing, marks, anti-cheating tolerances, and question section blueprints.
+        <p className="text-xs text-slate-500 mt-1">
+          Configure timing, marks, Sets A &amp; B dual paper rollout, anti-cheating, and question blueprints.
         </p>
       </div>
 
       {error && (
-        <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+        <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
           <AlertCircle className="w-4 h-4 shrink-0" />
           <span>{error}</span>
         </div>
       )}
 
       {/* 1. Basic Information Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-white uppercase tracking-wider text-indigo-400">
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600">
           1. Examination Overview
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Assessment Title *
             </label>
             <input
@@ -218,12 +268,12 @@ export default function CreateAssessmentPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. MCA Induction Assessment 2026"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Access Code * (Alphanumeric uppercase)
             </label>
             <input
@@ -232,13 +282,13 @@ export default function CreateAssessmentPage() {
               value={code}
               onChange={(e) => setCode(e.target.value.toUpperCase())}
               placeholder="e.g. MCA_RECRUIT_2026"
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white font-mono uppercase focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 font-mono uppercase placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
         </div>
 
         <div>
-          <label className="block text-xs font-medium text-slate-300 mb-1">
+          <label className="block text-xs font-semibold text-slate-700 mb-1">
             Description &amp; Instructions
           </label>
           <textarea
@@ -246,294 +296,390 @@ export default function CreateAssessmentPage() {
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Instructions displayed to candidates before beginning..."
-            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3.5 py-2.5 text-xs text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
           />
         </div>
       </div>
 
-      {/* 2. Timing, Marks, and Grading Rules */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-        <h2 className="text-sm font-semibold text-white uppercase tracking-wider text-indigo-400">
-          2. Timing &amp; Scoring Policy
+      {/* 2. Sets A & B Dual Paper Configuration (Competitive Exams) */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600 flex items-center gap-1.5">
+                <Layers className="w-4 h-4 text-orange-600" />
+                2. Dual Question Paper Sets (Set A &amp; Set B)
+              </h2>
+              <span className="px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-orange-50 text-orange-700 border border-orange-200">
+                Competitive Standard
+              </span>
+            </div>
+            <p className="text-xs text-slate-500 mt-1">
+              Concurrently deploy two distinct question papers. Alternating candidates get Set A and Set B to prevent copying.
+            </p>
+          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={setsEnabled}
+              onChange={(e) => setSetsEnabled(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
+            <span className="ml-3 text-xs font-semibold text-slate-700">
+              {setsEnabled ? 'Enabled (Sets A & B)' : 'Disabled (Single Set)'}
+            </span>
+          </label>
+        </div>
+
+        {setsEnabled && (
+          <div className="pt-3 border-t border-slate-100 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-orange-100 text-orange-700 flex items-center justify-center shrink-0 font-bold font-mono">
+                  A
+                </div>
+                <div>
+                  <div className="font-bold text-slate-800">Question Paper — Set A</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Standard configured question sections assigned to even-parity candidate seats.
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-start gap-3">
+                <div className="w-7 h-7 rounded-lg bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 font-bold font-mono">
+                  B
+                </div>
+                <div>
+                  <div className="font-bold text-slate-800">Question Paper — Set B</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    Alternate balanced question sequence assigned to odd-parity candidate seats.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 3. Timing, Marks, and Grading Rules */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+        <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600">
+          3. Timing &amp; Scoring Policy
         </h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Duration (Minutes)
             </label>
             <input
               type="number"
               min={5}
-              max={360}
+              max={300}
               value={durationMinutes}
-              onChange={(e) => setDurationMinutes(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => setDurationMinutes(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Total Marks
             </label>
             <input
               type="number"
               min={1}
               value={totalMarks}
-              onChange={(e) => setTotalMarks(parseFloat(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => setTotalMarks(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
-              Passing Cutoff Marks
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Pass Marks
             </label>
             <input
               type="number"
               min={0}
               value={passMarks}
-              onChange={(e) => setPassMarks(parseFloat(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => setPassMarks(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-300 mb-1">
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
               Negative Marking Rate
             </label>
             <select
               value={negativeMarkingRate}
-              onChange={(e) => setNegativeMarkingRate(parseFloat(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              onChange={(e) => setNegativeMarkingRate(Number(e.target.value))}
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             >
-              <option value={0}>0% (No penalty)</option>
-              <option value={0.25}>25% (-0.25x marks)</option>
-              <option value={0.33}>33% (-0.33x marks)</option>
-              <option value={0.5}>50% (-0.50x marks)</option>
+              <option value={0}>0 (No Penalty)</option>
+              <option value={0.25}>0.25 (1/4th Marks)</option>
+              <option value={0.33}>0.33 (1/3rd Marks)</option>
+              <option value={0.5}>0.5 (1/2 Marks)</option>
             </select>
           </div>
         </div>
 
-        {/* Candidate Rules & Integrity Toggles */}
-        <div className="pt-4 border-t border-slate-800 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300">
+        {/* Examination Switches */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-4 border-t border-slate-100 text-xs">
+          <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
             <input
               type="checkbox"
               checked={randomizeQuestions}
               onChange={(e) => setRandomizeQuestions(e.target.checked)}
-              className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
             />
-            <span>Randomize Question Order for Each Candidate</span>
+            <span>Randomize Question Order</span>
           </label>
 
-          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
             <input
               type="checkbox"
               checked={randomizeOptions}
               onChange={(e) => setRandomizeOptions(e.target.checked)}
-              className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
             />
-            <span>Randomize MCQ Option Sequences</span>
+            <span>Randomize MCQ Options</span>
           </label>
 
-          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
             <input
               type="checkbox"
               checked={allowQuestionReturn}
               onChange={(e) => setAllowQuestionReturn(e.target.checked)}
-              className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
             />
-            <span>Allow Navigating Back to Previous Questions</span>
+            <span>Allow Return to Previous</span>
           </label>
 
-          <label className="flex items-center gap-2.5 cursor-pointer text-xs text-slate-300">
+          <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allowAnswerChange}
+              onChange={(e) => setAllowAnswerChange(e.target.checked)}
+              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
+            />
+            <span>Allow Changing Answers</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
             <input
               type="checkbox"
               checked={showResultsImmediately}
               onChange={(e) => setShowResultsImmediately(e.target.checked)}
-              className="rounded bg-slate-950 border-slate-800 text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
             />
-            <span>Display Score Immediately upon Submission</span>
+            <span>Show Score Immediately</span>
+          </label>
+
+          <label className="flex items-center gap-2 text-slate-700 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={allowReviewAnswers}
+              onChange={(e) => setAllowReviewAnswers(e.target.checked)}
+              className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 border-slate-300"
+            />
+            <span>Allow Answer Review</span>
           </label>
         </div>
       </div>
 
-      {/* 3. Sections & Question Selector */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-6">
+      {/* 4. Question Section Builder */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm font-semibold text-white uppercase tracking-wider text-indigo-400">
-              3. Examination Sections &amp; Questions
+            <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600">
+              4. Examination Sections &amp; Questions
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Organize questions by category and section time constraints.
+            <p className="text-xs text-slate-500 mt-0.5">
+              Organize questions by section. Questions mapped here will automatically generate Set A and Set B snapshots.
             </p>
           </div>
           <button
             type="button"
             onClick={handleAddSection}
-            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition"
+            className="px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 text-xs font-bold transition flex items-center gap-1 shadow-sm"
           >
             <Plus className="w-3.5 h-3.5" />
             <span>Add Section</span>
           </button>
         </div>
 
-        {sections.map((section, sIdx) => (
-          <div
-            key={sIdx}
-            className="p-5 rounded-xl bg-slate-950 border border-slate-800/80 space-y-4"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider">
-                Section #{sIdx + 1}
-              </h3>
-              {sections.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveSection(sIdx)}
-                  className="text-slate-500 hover:text-rose-400 text-xs flex items-center gap-1"
-                >
-                  <Trash2 className="w-3.5 h-3.5" /> Remove
-                </button>
-              )}
-            </div>
+        <div className="space-y-6">
+          {sections.map((section, sIdx) => (
+            <div
+              key={sIdx}
+              className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <input
+                    type="text"
+                    value={section.name}
+                    onChange={(e) =>
+                      setSections(
+                        sections.map((s, i) =>
+                          i === sIdx ? { ...s, name: e.target.value } : s
+                        )
+                      )
+                    }
+                    placeholder="Section Title"
+                    className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  />
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                  Section Name
-                </label>
-                <input
-                  type="text"
-                  value={section.name}
-                  onChange={(e) => {
-                    const copy = [...sections];
-                    copy[sIdx].name = e.target.value;
-                    setSections(copy);
-                  }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
-                />
-              </div>
+                  <select
+                    value={section.category}
+                    onChange={(e) =>
+                      setSections(
+                        sections.map((s, i) =>
+                          i === sIdx ? { ...s, category: e.target.value } : s
+                        )
+                      )
+                    }
+                    className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                  >
+                    {Object.values(QuestionCategory).map((cat) => (
+                      <option key={cat} value={cat}>
+                        {cat}
+                      </option>
+                    ))}
+                  </select>
 
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                  Primary Category
-                </label>
-                <select
-                  value={section.category}
-                  onChange={(e) => {
-                    const copy = [...sections];
-                    copy[sIdx].category = e.target.value;
-                    setSections(copy);
-                  }}
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
-                >
-                  {Object.values(QuestionCategory).map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat.replace(/_/g, ' ')}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                  Time Limit (Mins, Optional)
-                </label>
-                <input
-                  type="number"
-                  value={section.timeLimitMinutes || ''}
-                  onChange={(e) => {
-                    const copy = [...sections];
-                    copy[sIdx].timeLimitMinutes = e.target.value ? parseInt(e.target.value, 10) : undefined;
-                    setSections(copy);
-                  }}
-                  placeholder="e.g. 20"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-xs text-white"
-                />
-              </div>
-            </div>
-
-            {/* Questions Picker for this Section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[11px] font-medium text-slate-400">
-                  Select Questions ({section.questionIds.length} assigned):
-                </span>
-                <span className="text-[10px] text-indigo-400">
-                  Click card to toggle selection
-                </span>
-              </div>
-
-              <div className="max-h-60 overflow-y-auto space-y-1.5 p-2 bg-slate-900/60 rounded-lg border border-slate-800/60">
-                {availableQuestions.length === 0 ? (
-                  <div className="text-center py-4 text-xs text-slate-500">
-                    No questions in bank. Use the Question Bank to add questions first.
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-slate-500 shrink-0">Time (mins):</span>
+                    <input
+                      type="number"
+                      value={section.timeLimitMinutes || ''}
+                      onChange={(e) =>
+                        setSections(
+                          sections.map((s, i) =>
+                            i === sIdx
+                              ? {
+                                  ...s,
+                                  timeLimitMinutes: e.target.value
+                                    ? Number(e.target.value)
+                                    : undefined,
+                                }
+                              : s
+                          )
+                        )
+                      }
+                      placeholder="Optional"
+                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    />
                   </div>
-                ) : (
-                  availableQuestions.map((q: any) => {
-                    const isSelected = section.questionIds.includes(q._id);
-                    return (
-                      <div
-                        key={q._id}
-                        onClick={() => toggleQuestionInSection(sIdx, q._id)}
-                        className={`p-2.5 rounded-lg border text-xs cursor-pointer flex items-center justify-between transition ${
-                          isSelected
-                            ? 'bg-indigo-950/60 border-indigo-500/60 text-white'
-                            : 'bg-slate-950 border-slate-800/80 text-slate-300 hover:border-slate-700'
-                        }`}
-                      >
-                        <div className="flex items-center gap-2.5 truncate pr-2">
-                          <div
-                            className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
-                              isSelected ? 'bg-indigo-600 text-white' : 'border border-slate-700'
-                            }`}
-                          >
-                            {isSelected && <Check className="w-3 h-3" />}
-                          </div>
-                          <span className="truncate font-medium">{q.title}</span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            [{q.type}]
-                          </span>
-                        </div>
-                        <div className="shrink-0 text-[11px] text-slate-400 font-mono">
-                          {q.marks}m (-{q.negativeMarks}m)
-                        </div>
-                      </div>
-                    );
-                  })
+                </div>
+
+                {sections.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveSection(sIdx)}
+                    className="p-2 text-slate-400 hover:text-rose-600 transition"
+                    title="Remove Section"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
                 )}
               </div>
+
+              {/* Questions Picker for this section */}
+              <div>
+                <div className="flex items-center justify-between text-xs mb-2">
+                  <span className="text-slate-600 font-semibold">
+                    Assigned Questions ({section.questionIds.length})
+                  </span>
+                  <span className="text-[11px] text-orange-600 font-medium">
+                    Click items below to toggle
+                  </span>
+                </div>
+
+                <div className="max-h-56 overflow-y-auto space-y-1.5 p-2 bg-white rounded-xl border border-slate-200">
+                  {availableQuestions.length === 0 ? (
+                    <div className="text-center py-4 text-xs text-slate-500">
+                      No questions found in question bank.
+                    </div>
+                  ) : (
+                    availableQuestions.map((q: any) => {
+                      const isSelected = section.questionIds.includes(q._id);
+                      return (
+                        <div
+                          key={q._id}
+                          onClick={() => toggleQuestionInSection(sIdx, q._id)}
+                          className={`p-2.5 rounded-lg border text-xs cursor-pointer transition flex items-center justify-between gap-3 ${
+                            isSelected
+                              ? 'bg-orange-50 border-orange-400 text-orange-950 font-medium'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2 truncate">
+                            <div
+                              className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                                isSelected ? 'bg-orange-500 text-white' : 'border border-slate-300'
+                              }`}
+                            >
+                              {isSelected && <Check className="w-3 h-3" />}
+                            </div>
+                            <span className="truncate">{q.title}</span>
+                          </div>
+
+                          <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                              {q.category}
+                            </span>
+                            <span className="font-mono text-orange-600 font-bold">
+                              {q.marks}m
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
 
-      {/* Action Footer */}
-      <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
+      {/* Action Buttons */}
+      <div className="flex items-center justify-end gap-3 pt-4">
         <Link
           href="/admin/assessments"
-          className="px-4 py-2 text-xs font-medium text-slate-400 hover:text-white transition"
+          className="px-4 py-2.5 rounded-xl border border-slate-300 text-xs font-semibold text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-50 transition shadow-sm"
         >
           Cancel
         </Link>
+
         <button
           type="button"
-          onClick={() => handleSubmit(false)}
           disabled={isLoading}
-          className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition"
+          onClick={() => handleSubmit(false)}
+          className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-300 text-xs font-bold text-slate-800 transition shadow-sm"
         >
           Save as Draft
         </button>
+
         <button
           type="button"
-          onClick={() => handleSubmit(true)}
           disabled={isLoading}
-          className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium shadow-lg shadow-indigo-600/30 transition flex items-center gap-2"
+          onClick={() => handleSubmit(true)}
+          className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold shadow-md shadow-orange-600/20 transition flex items-center gap-1.5 tracking-wide"
         >
-          {isLoading ? 'Creating...' : 'Create & Publish Examination'}
+          {isLoading ? (
+            <span>Publishing...</span>
+          ) : (
+            <>
+              <span>Publish Assessment (Sets A &amp; B)</span>
+            </>
+          )}
         </button>
       </div>
     </div>

@@ -9,8 +9,8 @@ import {
 
 export async function startAttemptHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const { accessCode, candidateId } = req.body;
-    const payload = await startAttempt(accessCode, candidateId);
+    const { accessCode, candidateId, preferredSet } = req.body;
+    const payload = await startAttempt(accessCode, candidateId, preferredSet);
     res.status(201).json({
       success: true,
       data: payload,
@@ -34,9 +34,16 @@ export async function getAttemptStateHandler(req: Request, res: Response, next: 
 
 export async function saveAnswerHandler(req: Request, res: Response, next: NextFunction) {
   try {
+    const questionId = req.params.questionId || req.body.questionId;
+    if (!questionId) {
+      return res.status(400).json({
+        success: false,
+        error: 'Question ID is required to save an answer',
+      });
+    }
     const result = await saveCandidateAnswer(
       req.params.id,
-      req.params.questionId,
+      questionId,
       req.body
     );
     res.json({

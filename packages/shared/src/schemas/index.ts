@@ -65,6 +65,13 @@ export const AssessmentSectionSchema = z.object({
   questionIds: z.array(z.string()).default([]),
 });
 
+export const AssessmentSetSchema = z.object({
+  setCode: z.string().min(1).default('A'), // 'A', 'B', etc.
+  name: z.string().min(1).default('Set A'),
+  description: z.string().optional(),
+  sections: z.array(AssessmentSectionSchema).default([]),
+});
+
 export const CreateAssessmentSchema = z.object({
   title: z.string().min(3, 'Assessment title is required'),
   description: z.string().optional().default(''),
@@ -83,6 +90,8 @@ export const CreateAssessmentSchema = z.object({
   allowRetake: z.boolean().default(false),
   codingEnabled: z.boolean().default(false),
   unansweredZeroMarks: z.boolean().default(true),
+  setsEnabled: z.boolean().default(true),
+  sets: z.array(AssessmentSetSchema).default([]),
   maxCandidates: z.number().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -107,18 +116,22 @@ export const CandidateRegisterSchema = z.object({
   email: z.string().email('Valid email is required'),
   phone: z.string().optional(),
   accessCode: z.string().min(4, 'Access code is required').toUpperCase(),
+  preferredSet: z.string().optional(),
 });
 
 export const StartAttemptSchema = z.object({
   accessCode: z.string().min(4),
   candidateId: z.string().min(1),
+  preferredSet: z.string().optional(),
 });
 
 export const SaveAnswerSchema = z.object({
+  questionId: z.string().optional(),
   selectedOptionIds: z.array(z.string()).optional(),
   textAnswer: z.string().optional(),
   numericalAnswer: z.number().optional(),
   codeSubmission: z.string().optional(),
+  isMarkedForReview: z.boolean().optional(),
 });
 
 export const IntegrityEventSchema = z.object({

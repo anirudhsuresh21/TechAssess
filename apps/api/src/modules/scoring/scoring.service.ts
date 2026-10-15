@@ -27,7 +27,8 @@ export function evaluateAttemptAnswers(
     textAnswer?: string;
     numericalAnswer?: number;
     codeSubmission?: string;
-  }>
+  }>,
+  assignedSet?: string
 ): EvaluatedScoreResult {
   let totalAssessmentMarks = 0;
   let totalObtainedMarks = 0;
@@ -40,7 +41,11 @@ export function evaluateAttemptAnswers(
     correct: number;
   }> = {};
 
-  for (const section of snapshot.sections) {
+  const targetSections =
+    (assignedSet && snapshot.sets?.find((s) => s.setCode === assignedSet)?.sections) ||
+    snapshot.sections;
+
+  for (const section of targetSections) {
     let sectionObtained = 0;
     let sectionTotal = 0;
     let sectionAnswered = 0;

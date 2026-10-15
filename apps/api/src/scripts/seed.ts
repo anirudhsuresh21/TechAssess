@@ -354,6 +354,27 @@ async function seed() {
         allowReviewAnswers: true,
         isPublic: true,
         allowRetake: false,
+        setsEnabled: true,
+        sets: [
+          {
+            setCode: 'A',
+            name: 'Set A',
+            description: 'Recruitment Set A — Standard Question Sequence',
+            sections,
+          },
+          {
+            setCode: 'B',
+            name: 'Set B',
+            description: 'Recruitment Set B — Alternate Balanced Question Sequence',
+            sections: sections.map((s) => ({
+              name: s.name,
+              category: s.category,
+              description: s.description,
+              timeLimitMinutes: s.timeLimitMinutes,
+              questionIds: [...s.questionIds].reverse(),
+            })),
+          },
+        ],
         sections,
         integritySettings: {
           maxFocusLossCount: 3,
@@ -377,6 +398,8 @@ async function seed() {
         email: 'aarav.sharma@example.edu',
         scorePct: 92,
         focusLoss: 0,
+        assignedSet: 'A',
+        setName: 'Set A',
       },
       {
         name: 'Priya Patel',
@@ -385,6 +408,8 @@ async function seed() {
         email: 'priya.patel@example.edu',
         scorePct: 84,
         focusLoss: 1,
+        assignedSet: 'B',
+        setName: 'Set B',
       },
       {
         name: 'Rohan Deshmukh',
@@ -393,6 +418,8 @@ async function seed() {
         email: 'rohan.d@example.edu',
         scorePct: 68,
         focusLoss: 4, // Exceeds threshold to show integrity warning flag!
+        assignedSet: 'A',
+        setName: 'Set A',
       },
       {
         name: 'Sneha Kulkarni',
@@ -401,6 +428,8 @@ async function seed() {
         email: 'sneha.k@example.edu',
         scorePct: 44,
         focusLoss: 0,
+        assignedSet: 'B',
+        setName: 'Set B',
       },
       {
         name: 'Vikram Joshi',
@@ -409,6 +438,8 @@ async function seed() {
         email: 'vikram.j@example.edu',
         scorePct: 76,
         focusLoss: 2,
+        assignedSet: 'A',
+        setName: 'Set A',
       },
     ];
 
@@ -437,6 +468,8 @@ async function seed() {
           status: 'IN_PROGRESS',
           startTime,
           serverDeadline,
+          assignedSet: cData.assignedSet,
+          setName: cData.setName,
           focusLossCount: cData.focusLoss,
           integrityFlagged: cData.focusLoss >= 3,
         });

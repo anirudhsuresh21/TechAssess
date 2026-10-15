@@ -9,10 +9,11 @@ import {
 
 export async function getAssessmentResultsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const { search, shortlistStatus, page, limit, sortBy, sortOrder } = req.query;
+    const { search, shortlistStatus, set, page, limit, sortBy, sortOrder } = req.query;
     const data = await getAssessmentResults(req.params.id, {
       search: search as string,
       shortlistStatus: shortlistStatus as any,
+      set: set as string,
       page: page ? parseInt(page as string, 10) : 1,
       limit: limit ? parseInt(limit as string, 10) : 20,
       sortBy: sortBy as string,

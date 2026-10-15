@@ -13,6 +13,8 @@ export interface IResult extends Document {
   attemptId: mongoose.Types.ObjectId;
   candidateId: mongoose.Types.ObjectId;
   assessmentId: mongoose.Types.ObjectId;
+  assignedSet?: string;
+  setName?: string;
   totalMarks: number;
   obtainedMarks: number;
   percentage: number;
@@ -53,6 +55,8 @@ const ResultSchema = new Schema<IResult>(
       required: true,
       index: true,
     },
+    assignedSet: { type: String, default: 'A', index: true },
+    setName: { type: String, default: 'Set A' },
     totalMarks: { type: Number, required: true },
     obtainedMarks: { type: Number, required: true, index: true },
     percentage: { type: Number, required: true },

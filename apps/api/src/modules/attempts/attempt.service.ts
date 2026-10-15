@@ -24,7 +24,7 @@ function shuffleArray<T>(array: T[]): T[] {
   return arr;
 }
 
-export async function startAttempt(accessCode: string, candidateId: string) {
+export async function startAttempt(accessCode: string, candidateId: string, preferredSet?: string) {
   const normalizedCode = accessCode.trim().toUpperCase();
   const candidate = await Candidate.findById(candidateId);
   if (!candidate) {
@@ -72,9 +72,26 @@ export async function startAttempt(accessCode: string, candidateId: string) {
     return getAttemptPayload(attempt, version);
   }
 
-  // Build question ordering and option map
+  // Determine assigned set (alternating parity or preferred)
+  let assignedSetCode = 'A';
+  if (preferredSet && ['A', 'B'].includes(preferredSet.toUpperCase())) {
+    assignedSetCode = preferredSet.toUpperCase();
+  } else if (version.snapshotData.setsEnabled !== false) {
+    const existingAttemptsCount = await Attempt.countDocuments({ assessmentId: assessment._id });
+    assignedSetCode = existingAttemptsCount % 2 === 0 ? 'A' : 'B';
+  }
+
+  // Find matching set snapshot or fallback to base sections
+  const matchingSet = version.snapshotData.sets?.find((s: any) => s.setCode === assignedSetCode);
+  const assignedSetName = matchingSet?.name || `Set ${assignedSetCode}`;
+  const activeSections =
+    matchingSet?.sections && matchingSet.sections.length > 0
+      ? matchingSet.sections
+      : version.snapshotData.sections;
+
+  // Build question ordering and option map from active sections
   const allQuestions: any[] = [];
-  version.snapshotData.sections.forEach((sec) => {
+  activeSections.forEach((sec: any) => {
     allQuestions.push(...sec.questions);
   });
 
@@ -107,6 +124,8 @@ export async function startAttempt(accessCode: string, candidateId: string) {
     startTime,
     serverDeadline,
     totalMarks: version.snapshotData.totalMarks,
+    assignedSet: assignedSetCode,
+    setName: assignedSetName,
     randomizedQuestionOrder: orderedQuestionIds,
     randomizedOptionMap,
   });
@@ -221,7 +240,7 @@ export async function submitAttempt(attemptId: string, isAutoExpired = false) {
   }
 
   // Evaluate
-  const scoreResult = evaluateAttemptAnswers(version.snapshotData, answersMap);
+  const scoreResult = evaluateAttemptAnswers(version.snapshotData, answersMap, attempt.assignedSet);
 
   attempt.status = isAutoExpired ? AttemptStatus.EXPIRED : AttemptStatus.SUBMITTED;
   attempt.submissionTime = submissionTime;
@@ -239,6 +258,8 @@ export async function submitAttempt(attemptId: string, isAutoExpired = false) {
       $set: {
         candidateId: attempt.candidateId,
         assessmentId: attempt.assessmentId,
+        assignedSet: attempt.assignedSet || 'A',
+        setName: attempt.setName || `Set ${attempt.assignedSet || 'A'}`,
         totalMarks: scoreResult.totalMarks,
         obtainedMarks: scoreResult.obtainedMarks,
         percentage: scoreResult.percentage,
@@ -284,19 +305,38 @@ export async function recordAttemptIntegrityEvent(
   });
 
   attempt.focusLossCount += 1;
+  let autoSubmitted = false;
+  let submissionResult: any = null;
+
   if (attempt.focusLossCount >= maxAllowed) {
     attempt.integrityFlagged = true;
+    attempt.metadata = {
+      ...(attempt.metadata || {}),
+      terminationReason: 'INTEGRITY_VIOLATION_LIMIT_REACHED',
+      autoSubmittedDueToViolations: true,
+    };
+
+    if (attempt.status === AttemptStatus.IN_PROGRESS) {
+      await attempt.save();
+      submissionResult = await submitAttempt(attempt._id.toString(), false);
+      autoSubmitted = true;
+    } else {
+      await attempt.save();
+    }
+  } else {
+    await attempt.save();
   }
-  await attempt.save();
 
   return {
     focusLossCount: attempt.focusLossCount,
     integrityFlagged: attempt.integrityFlagged,
     maxAllowed,
+    autoSubmitted,
+    submissionResult,
     warning:
       attempt.focusLossCount >= maxAllowed
-        ? 'Maximum focus loss limit exceeded. This attempt has been flagged for administrator review.'
-        : `Focus loss warning ${attempt.focusLossCount} of ${maxAllowed}. Switching tabs or exiting fullscreen is monitored.`,
+        ? `Maximum integrity violations reached (${attempt.focusLossCount}/${maxAllowed}). Your examination has been automatically submitted for administrator review.`
+        : `Focus loss warning ${attempt.focusLossCount} of ${maxAllowed}. Switching tabs or exiting fullscreen is monitored. At ${maxAllowed} warnings, the examination will automatically submit.`,
   };
 }
 
@@ -312,9 +352,15 @@ export async function recalculateAssessmentRanks(assessmentId: string) {
 }
 
 async function getAttemptPayload(attempt: IAttempt, version: any): Promise<CandidateAttemptPayload> {
-  // Build lookup of all questions from version
+  const matchingSet = version.snapshotData.sets?.find((s: any) => s.setCode === (attempt.assignedSet || 'A'));
+  const activeSections =
+    matchingSet?.sections && matchingSet.sections.length > 0
+      ? matchingSet.sections
+      : version.snapshotData.sections;
+
+  // Build lookup of all questions from activeSections
   const questionsMap = new Map<string, any>();
-  version.snapshotData.sections.forEach((sec: any) => {
+  activeSections.forEach((sec: any) => {
     sec.questions.forEach((q: any) => {
       questionsMap.set(q._id.toString(), q);
     });
@@ -375,7 +421,7 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
   }
 
   // Sections with question indices
-  const sections = version.snapshotData.sections.map((sec: any) => {
+  const sections = activeSections.map((sec: any) => {
     const secQIds = new Set(sec.questions.map((q: any) => q._id.toString()));
     const indices: number[] = [];
     sanitizedQuestions.forEach((q, idx) => {
@@ -400,6 +446,8 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
     allowQuestionReturn: version.snapshotData.allowQuestionReturn,
     allowAnswerChange: version.snapshotData.allowAnswerChange,
     codingEnabled: version.snapshotData.codingEnabled,
+    assignedSet: attempt.assignedSet || 'A',
+    setName: attempt.setName || `Set ${attempt.assignedSet || 'A'}`,
     sections,
     questions: sanitizedQuestions,
     savedAnswers,

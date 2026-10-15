@@ -13,6 +13,7 @@ import {
   Maximize2,
   ArrowRight,
   Info,
+  Layers,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
@@ -64,7 +65,7 @@ export default function ExamInstructionsPage() {
       .then((res) => {
         if (res.ok) setNetworkCheck(true);
       })
-      .catch(() => setNetworkCheck(true)); // fallback ok
+      .catch(() => setNetworkCheck(true));
   }, [rawCode, router]);
 
   const requestFullscreen = () => {
@@ -89,11 +90,13 @@ export default function ExamInstructionsPage() {
     setError('');
 
     try {
+      const preferredSet = localStorage.getItem('preferred_set');
       const payload = await apiRequest('/attempts/start', {
         method: 'POST',
         body: JSON.stringify({
           accessCode: rawCode,
           candidateId,
+          preferredSet: preferredSet || undefined,
         }),
       });
 
@@ -109,87 +112,105 @@ export default function ExamInstructionsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 py-12 px-4 selection:bg-indigo-500 selection:text-white">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 py-12 px-4 selection:bg-orange-500 selection:text-white">
       <div className="max-w-3xl mx-auto space-y-6">
         {/* Header */}
         <div className="text-center space-y-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-300 text-xs font-medium">
-            <ShieldCheck className="w-3.5 h-3.5 text-indigo-400" />
+          <div className="flex justify-center mb-1">
+            <img src="/media/sun-logo.png" alt="TechAssess Sun Logo" className="w-12 h-12 object-contain" />
+          </div>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 text-orange-700 text-xs font-bold border border-orange-200 shadow-sm">
+            <ShieldCheck className="w-3.5 h-3.5 text-orange-600" />
             Candidate Instructions &amp; System Compatibility Check
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
+          <h1 className="text-2xl font-black tracking-tight text-[#06111f]">
             Examination Rules &amp; Environment Verification
           </h1>
-          <p className="text-xs text-slate-400">
-            Candidate: <strong className="text-slate-200">{candidateName}</strong> ({candidateRoll}) • Exam Code: <strong className="text-indigo-400 font-mono">{rawCode}</strong>
+          <p className="text-xs text-slate-600">
+            Candidate: <strong className="text-slate-900">{candidateName}</strong> ({candidateRoll}) • Exam Code: <strong className="text-orange-600 font-mono">{rawCode}</strong>
           </p>
         </div>
 
         {error && (
-          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs flex items-center gap-2">
+          <div className="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs flex items-center gap-2 font-medium">
             <AlertTriangle className="w-4 h-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
+        {/* Question Sets Rollout Notice */}
+        <div className="p-4 rounded-xl bg-white border border-orange-200 flex items-center justify-between text-xs shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-orange-50 text-orange-600 border border-orange-100 flex items-center justify-center shrink-0">
+              <Layers className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-slate-900">Concurrent Question Paper Sets (Set A / Set B)</div>
+              <div className="text-[11px] text-slate-600">
+                You will be automatically allocated either Set A or Set B when starting. Both papers maintain identical syllabus coverage and difficulty standards.
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 1. Device Compatibility Check Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <h2 className="text-xs font-semibold text-white uppercase tracking-wider text-indigo-400">
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-orange-600">
             1. System &amp; Device Compatibility Check
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Monitor className="w-4 h-4 text-slate-400" />
-                <span>Display Resolution</span>
+                <Monitor className="w-4 h-4 text-slate-500" />
+                <span className="text-slate-700">Display Resolution</span>
               </div>
               {screenCheck ? (
-                <span className="text-emerald-400 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Compatible
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Compatible
                 </span>
               ) : (
-                <span className="text-amber-400 font-medium">Compact Display</span>
+                <span className="text-amber-700 font-bold">Compact Display</span>
               )}
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Eye className="w-4 h-4 text-slate-400" />
-                <span>Browser Visibility API</span>
+                <Eye className="w-4 h-4 text-slate-500" />
+                <span className="text-slate-700">Browser Visibility API</span>
               </div>
               {visibilityCheck ? (
-                <span className="text-emerald-400 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Supported
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Supported
                 </span>
               ) : (
-                <span className="text-rose-400 font-medium">Unsupported</span>
+                <span className="text-rose-700 font-bold">Unsupported</span>
               )}
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Wifi className="w-4 h-4 text-slate-400" />
-                <span>Server Network Ping</span>
+                <Wifi className="w-4 h-4 text-slate-500" />
+                <span className="text-slate-700">Server Network Ping</span>
               </div>
               {networkCheck ? (
-                <span className="text-emerald-400 font-medium flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> Connected
+                <span className="text-emerald-700 font-bold flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" /> Connected
                 </span>
               ) : (
-                <span className="text-amber-400 font-medium">Connecting...</span>
+                <span className="text-amber-700 font-bold">Connecting...</span>
               )}
             </div>
 
-            <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Maximize2 className="w-4 h-4 text-slate-400" />
-                <span>Fullscreen Mode</span>
+                <Maximize2 className="w-4 h-4 text-slate-500" />
+                <span className="text-slate-700">Fullscreen Mode</span>
               </div>
               <button
                 type="button"
                 onClick={requestFullscreen}
-                className="text-indigo-400 hover:text-indigo-300 font-medium underline"
+                className="text-orange-600 hover:text-orange-700 font-bold underline"
               >
                 {isFullscreen ? 'Exit Fullscreen' : 'Enable Fullscreen'}
               </button>
@@ -198,62 +219,73 @@ export default function ExamInstructionsPage() {
         </div>
 
         {/* 2. Rules and Integrity Regulations Card */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4 text-xs">
-          <h2 className="text-xs font-semibold text-white uppercase tracking-wider text-indigo-400">
-            2. General Instructions &amp; Examination Integrity Rules
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-orange-600">
+            2. Examination Rules &amp; Anti-Cheating Protocol
           </h2>
 
-          <ul className="space-y-2.5 text-slate-300 list-disc pl-5 leading-relaxed">
-            <li>
-              <strong className="text-white">Authoritative Server Timer:</strong> The examination countdown is determined by the central server. Never rely on your laptop clock. When the timer reaches 00:00, your exam will be automatically submitted.
+          <ul className="space-y-2.5 text-xs text-slate-700">
+            <li className="flex items-start gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+              <span>
+                <strong>Authoritative Timing:</strong> Time is measured strictly by the server. Your countdown will automatically submit all saved answers when the timer reaches zero.
+              </span>
             </li>
-            <li>
-              <strong className="text-white">Real-Time Autosave:</strong> Every answer selection is automatically and asynchronously saved to the server. You can also manually review saved status anytime.
+            <li className="flex items-start gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+              <span>
+                <strong>Focus Loss &amp; Tab Switch Tracking:</strong> Leaving this browser tab, minimizing the window, or opening developer tools will be logged. Exceeding 3 focus losses will flag your attempt for administrator integrity review.
+              </span>
             </li>
-            <li>
-              <strong className="text-white">Session Recovery:</strong> If your browser accidentally refreshes or your network briefly drops, simply reload the page—your attempt and saved answers will be automatically restored.
+            <li className="flex items-start gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+              <span>
+                <strong>Continuous Autosave:</strong> Every question selection or text change is automatically saved to the backend database. If your internet briefly drops, answers will synchronize upon reconnection.
+              </span>
             </li>
-            <li>
-              <strong className="text-white">Negative Marking Policy:</strong> Incorrect answers for marked objective questions carry a penalty. Unanswered questions receive 0 marks with no penalty.
-            </li>
-            <li>
-              <strong className="text-white">Focus Loss &amp; Tab Switch Monitoring:</strong> The examination window monitors visibility changes and window blur events. Switching away to another tab or application will display a warning and is recorded in the integrity audit log.
+            <li className="flex items-start gap-2.5">
+              <span className="w-1.5 h-1.5 rounded-full bg-orange-500 mt-1.5 shrink-0" />
+              <span>
+                <strong>Unique Paper Sets:</strong> Candidates in the same room are allocated alternating Set A or Set B papers with randomized sequence and options.
+              </span>
             </li>
           </ul>
 
-          <div className="p-3.5 rounded-xl bg-indigo-950/40 border border-indigo-800/40 text-indigo-300 flex items-start gap-2.5">
-            <Info className="w-4 h-4 shrink-0 mt-0.5" />
-            <span>
-              Transparency notice: TechAssess uses standard browser Page Visibility events as diagnostic signals. No camera, microphone, or invasive device screen recordings are collected.
-            </span>
+          <div className="pt-4 border-t border-slate-100">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={hasAcceptedRules}
+                onChange={(e) => setHasAcceptedRules(e.target.checked)}
+                className="w-4 h-4 rounded text-orange-600 focus:ring-orange-500 bg-white border-slate-300"
+              />
+              <span className="text-xs font-semibold text-slate-800">
+                I have read and accept all examination rules, anti-cheating regulations, and instructions.
+              </span>
+            </label>
           </div>
         </div>
 
-        {/* 3. Acceptance and Start */}
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 space-y-4">
-          <label className="flex items-start gap-3 cursor-pointer text-xs text-slate-300 select-none">
-            <input
-              type="checkbox"
-              checked={hasAcceptedRules}
-              onChange={(e) => setHasAcceptedRules(e.target.checked)}
-              className="mt-0.5 rounded bg-slate-950 border-slate-700 text-indigo-600 focus:ring-indigo-500 w-4 h-4"
-            />
-            <span>
-              I have verified my system compatibility, read the examination instructions, understand the integrity monitoring rules, and agree to start my timed session.
-            </span>
-          </label>
+        {/* Start Button */}
+        <div className="flex items-center justify-between pt-2">
+          <Link
+            href={`/exam/${rawCode}`}
+            className="text-xs text-slate-500 hover:text-slate-900 transition font-medium"
+          >
+            ← Modify Candidate Details
+          </Link>
 
           <button
             type="button"
-            onClick={handleStartExam}
             disabled={!hasAcceptedRules || isLoading}
-            className="w-full bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-white font-medium py-3 px-4 rounded-xl shadow-lg shadow-indigo-600/30 transition flex items-center justify-center gap-2 text-sm"
+            onClick={handleStartExam}
+            className="px-6 py-3 rounded-xl bg-gradient-to-r from-orange-600 via-orange-500 to-amber-500 hover:from-orange-500 hover:to-amber-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-bold shadow-md shadow-orange-600/25 transition flex items-center gap-2 tracking-wide"
           >
             {isLoading ? (
-              <span>Initializing Examination Session...</span>
+              <span>Preparing Question Paper...</span>
             ) : (
               <>
-                <span>Start Timed Examination</span>
+                <span>Start Examination Now</span>
                 <ArrowRight className="w-4 h-4" />
               </>
             )}

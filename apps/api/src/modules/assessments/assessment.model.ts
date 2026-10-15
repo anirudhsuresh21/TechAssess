@@ -9,6 +9,13 @@ export interface IAssessmentSection {
   questionIds: mongoose.Types.ObjectId[];
 }
 
+export interface IAssessmentSet {
+  setCode: string; // 'A' | 'B'
+  name: string;   // 'Set A' | 'Set B'
+  description?: string;
+  sections: IAssessmentSection[];
+}
+
 export interface IAssessmentIntegritySettings {
   maxFocusLossCount: number;
   flagOnFocusLoss: boolean;
@@ -35,6 +42,8 @@ export interface IAssessment extends Document {
   allowRetake: boolean;
   codingEnabled: boolean;
   unansweredZeroMarks: boolean;
+  setsEnabled: boolean;
+  sets: IAssessmentSet[];
   maxCandidates?: number;
   startDate?: Date;
   endDate?: Date;
@@ -52,6 +61,16 @@ const AssessmentSectionSchema = new Schema<IAssessmentSection>(
     description: { type: String },
     timeLimitMinutes: { type: Number },
     questionIds: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
+  },
+  { _id: false }
+);
+
+const AssessmentSetSchema = new Schema<IAssessmentSet>(
+  {
+    setCode: { type: String, required: true, default: 'A' },
+    name: { type: String, required: true, default: 'Set A' },
+    description: { type: String },
+    sections: [AssessmentSectionSchema],
   },
   { _id: false }
 );
@@ -89,6 +108,8 @@ const AssessmentSchema = new Schema<IAssessment>(
     allowRetake: { type: Boolean, default: false },
     codingEnabled: { type: Boolean, default: false },
     unansweredZeroMarks: { type: Boolean, default: true },
+    setsEnabled: { type: Boolean, default: true },
+    sets: [AssessmentSetSchema],
     maxCandidates: { type: Number },
     startDate: { type: Date },
     endDate: { type: Date },

@@ -255,10 +255,23 @@ Broken Q,No,INVALID_CAT,Math,EASY,SINGLE_CHOICE,A;B,1,1`;
       expect(res.body.data.attemptId).toBe(attemptId);
     });
 
-    it('should autosave candidate answers reliably on server', async () => {
+    it('should autosave candidate answers reliably on server with PUT /:id/answers/:questionId', async () => {
       const res = await request(app)
         .put(`/api/v1/attempts/${attemptId}/answers/${testQuestionId}`)
         .send({
+          selectedOptionIds: ['opt_1'],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.success).toBe(true);
+      expect(res.body.data.savedAt).toBeDefined();
+    });
+
+    it('should autosave candidate answers reliably with POST /:id/answers (body questionId)', async () => {
+      const res = await request(app)
+        .post(`/api/v1/attempts/${attemptId}/answers`)
+        .send({
+          questionId: testQuestionId,
           selectedOptionIds: ['opt_1'],
         });
 
@@ -278,6 +291,7 @@ Broken Q,No,INVALID_CAT,Math,EASY,SINGLE_CHOICE,A;B,1,1`;
 
       expect(res.status).toBe(200);
       expect(res.body.data.focusLossCount).toBe(1);
+      expect(res.body.data.autoSubmitted).toBe(false);
       expect(res.body.data.warning).toContain('Focus loss warning 1 of 3');
     });
   });
@@ -336,6 +350,139 @@ Broken Q,No,INVALID_CAT,Math,EASY,SINGLE_CHOICE,A;B,1,1`;
 
       expect(res.status).toBe(200);
       expect(res.body.data.status).toBe('SHORTLISTED');
+    });
+  });
+
+  describe('7. Question Paper Sets A & B Dual Rollout & Evaluation', () => {
+    let candidate2Id: string;
+    let attempt2Id: string;
+
+    it('should register a second candidate for the assessment', async () => {
+      const res = await request(app).post('/api/v1/candidate/register').send({
+        name: 'Set B Candidate',
+        rollNumber: 'MCA2026-888',
+        division: 'B',
+        email: 'setb@test.local',
+        accessCode: examCode,
+      });
+
+      expect(res.status).toBe(200);
+      candidate2Id = res.body.data.candidate.id;
+    });
+
+    it('should allocate Set B to the candidate and include set metadata', async () => {
+      const res = await request(app).post('/api/v1/attempts/start').send({
+        accessCode: examCode,
+        candidateId: candidate2Id,
+        preferredSet: 'B',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.assignedSet).toBe('B');
+      expect(res.body.data.setName).toBe('Set B');
+      attempt2Id = res.body.data.attemptId;
+    });
+
+    it('should submit Set B examination and record result with assigned set', async () => {
+      const res = await request(app)
+        .post(`/api/v1/attempts/${attempt2Id}/submit`)
+        .send();
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.attempt.status).toBe('SUBMITTED');
+    });
+
+    it('should filter results by Set A and Set B', async () => {
+      const resSetA = await request(app)
+        .get(`/api/v1/results/assessments/${createdAssessmentId}/results?set=A`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(resSetA.status).toBe(200);
+      expect(resSetA.body.data.length).toBe(1);
+      expect(resSetA.body.data[0].assignedSet).toBe('A');
+
+      const resSetB = await request(app)
+        .get(`/api/v1/results/assessments/${createdAssessmentId}/results?set=B`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(resSetB.status).toBe(200);
+      expect(resSetB.body.data.length).toBe(1);
+      expect(resSetB.body.data[0].assignedSet).toBe('B');
+    });
+
+    it('should return per-set comparative analytics for Set A vs Set B', async () => {
+      const res = await request(app)
+        .get(`/api/v1/results/assessments/${createdAssessmentId}/analytics`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.setAnalytics).toBeDefined();
+      expect(res.body.data.setAnalytics['A']).toBeDefined();
+      expect(res.body.data.setAnalytics['B']).toBeDefined();
+      expect(res.body.data.setAnalytics['A'].totalAttempts).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.setAnalytics['B'].totalAttempts).toBeGreaterThanOrEqual(1);
+    });
+  });
+
+  describe('8. Integrity Violations & Automatic Examination Termination', () => {
+    let violatorAttemptId: string;
+
+    it('should register candidate and start attempt for integrity testing', async () => {
+      const regRes = await request(app)
+        .post('/api/v1/candidate/register')
+        .send({
+          name: 'Cheating Test Candidate',
+          rollNumber: 'MCA2026-CH01',
+          division: 'B',
+          email: 'cheater@example.edu',
+          accessCode: examCode,
+        });
+      expect(regRes.status).toBe(200);
+      const violatorCandidateId = regRes.body.data.candidate.id;
+
+      const startRes = await request(app)
+        .post('/api/v1/attempts/start')
+        .send({
+          accessCode: examCode,
+          candidateId: violatorCandidateId,
+        });
+      expect(startRes.status).toBe(201);
+      violatorAttemptId = startRes.body.data.attemptId;
+    });
+
+    it('should automatically terminate and submit examination on 3rd integrity violation', async () => {
+      // Event 1
+      const e1 = await request(app)
+        .post(`/api/v1/attempts/${violatorAttemptId}/integrity-events`)
+        .send({ eventType: IntegrityEventType.TAB_SWITCH, durationMs: 2000 });
+      expect(e1.body.data.focusLossCount).toBe(1);
+      expect(e1.body.data.autoSubmitted).toBe(false);
+
+      // Event 2
+      const e2 = await request(app)
+        .post(`/api/v1/attempts/${violatorAttemptId}/integrity-events`)
+        .send({ eventType: IntegrityEventType.WINDOW_BLUR, durationMs: 2000 });
+      expect(e2.body.data.focusLossCount).toBe(2);
+      expect(e2.body.data.autoSubmitted).toBe(false);
+
+      // Event 3: 3rd violation triggers automatic submission!
+      const e3 = await request(app)
+        .post(`/api/v1/attempts/${violatorAttemptId}/integrity-events`)
+        .send({ eventType: IntegrityEventType.FULLSCREEN_EXIT, durationMs: 0 });
+      expect(e3.status).toBe(200);
+      expect(e3.body.data.focusLossCount).toBe(3);
+      expect(e3.body.data.autoSubmitted).toBe(true);
+      expect(e3.body.data.integrityFlagged).toBe(true);
+      expect(e3.body.data.submissionResult.attempt.status).toBe('SUBMITTED');
+      expect(e3.body.data.submissionResult.attempt.integrityFlagged).toBe(true);
+      expect(e3.body.data.warning).toContain('Maximum integrity violations reached (3/3)');
+
+      // Subsequent answer save should be rejected because exam is finalized
+      const saveAfterSubmit = await request(app)
+        .post(`/api/v1/attempts/${violatorAttemptId}/answers`)
+        .send({ questionId: testQuestionId, selectedOptionIds: ['opt_1'] });
+      expect(saveAfterSubmit.status).toBe(400);
+      expect(saveAfterSubmit.body.error).toContain('finalized');
     });
   });
 });

@@ -16,6 +16,7 @@ import {
   ShieldAlert,
   MessageSquare,
   Award,
+  Layers,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { ShortlistStatus } from '@techassess/shared';
@@ -99,115 +100,130 @@ export default function ShortlistDashboardPage() {
       {/* Header */}
       <div>
         <Link
-          href={`/admin/results/${assessmentId}`}
-          className="inline-flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition"
+          href="/admin/assessments"
+          className="inline-flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-800 transition"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
-          <span>Back to Results Dashboard</span>
+          <span>Back to Examinations</span>
         </Link>
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mt-2">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-emerald-400" />
-              Candidate Shortlisting &amp; Selection
+            <h1 className="text-2xl font-bold tracking-tight text-[#06111f] flex items-center gap-2">
+              <Users className="w-6 h-6 text-[#f37021]" />
+              Recruitment Candidate Shortlist
             </h1>
-            <p className="text-xs text-slate-400 mt-1">
-              Apply qualification cutoffs, add recruiter interview notes, and export official shortlists.
+            <p className="text-xs text-slate-500 mt-1">
+              Filter top performers across Sets A &amp; B, apply automated cutoff thresholds, and record review notes.
             </p>
           </div>
 
-          <button
-            type="button"
-            onClick={handleExportCsv}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium border border-slate-700 transition self-start sm:self-auto"
-          >
-            <Download className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Export Shortlist CSV</span>
-          </button>
+          <div className="flex items-center gap-3">
+            <Link
+              href={`/admin/results/${assessmentId}`}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-200 transition shadow-sm"
+            >
+              <Award className="w-3.5 h-3.5 text-orange-600" />
+              <span>View Results &amp; Sets</span>
+            </Link>
+            <button
+              type="button"
+              onClick={handleExportCsv}
+              className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold shadow-sm transition"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span>Export Shortlist CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
       {actionMessage && (
-        <div className="p-3.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 text-xs flex items-center gap-2">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+        <div className="p-3.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
           <span>{actionMessage}</span>
         </div>
       )}
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
-            Total Candidates
+      {/* Summary Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+            Total Evaluated
           </span>
-          <div className="mt-1 text-2xl font-bold text-white">
-            {summary?.total || list.length}
+          <div className="mt-1 text-2xl font-black text-slate-900">
+            {summary?.totalCandidates ?? 0}
           </div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Across Sets A &amp; B</div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[11px] font-medium text-emerald-400 uppercase tracking-wider">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Shortlisted
           </span>
-          <div className="mt-1 text-2xl font-bold text-emerald-400">
-            {summary?.shortlisted || 0}
+          <div className="mt-1 text-2xl font-black text-emerald-600">
+            {summary?.shortlisted ?? 0}
           </div>
+          <div className="text-[11px] text-emerald-600 mt-0.5">Approved for Tech Club interview</div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Pending Review
           </span>
-          <div className="mt-1 text-2xl font-bold text-amber-400">
-            {summary?.pending || 0}
+          <div className="mt-1 text-2xl font-black text-amber-600">
+            {summary?.pending ?? 0}
           </div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Awaiting decision</div>
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4">
-          <span className="text-[11px] font-medium text-rose-400 uppercase tracking-wider">
+        <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm">
+          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
             Rejected
           </span>
-          <div className="mt-1 text-2xl font-bold text-rose-400">
-            {summary?.rejected || 0}
+          <div className="mt-1 text-2xl font-black text-rose-600">
+            {summary?.rejected ?? 0}
           </div>
+          <div className="text-[11px] text-slate-500 mt-0.5">Did not meet cutoff</div>
         </div>
       </div>
 
-      {/* Bulk Cutoff Qualification Filter Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4">
-        <div className="flex items-center gap-2 text-xs font-semibold text-white uppercase tracking-wider text-indigo-400">
-          <Filter className="w-4 h-4" />
-          <span>Automated Qualification Cutoff Rule</span>
+      {/* Bulk Automated Shortlist Box */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-4 shadow-sm">
+        <div className="flex items-center gap-2">
+          <Filter className="w-4 h-4 text-orange-600" />
+          <h2 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+            Automated Cutoff Rule Engine
+          </h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-xs">
           <div>
-            <label className="block text-slate-300 mb-1">Minimum Score (Marks)</label>
+            <label className="block text-slate-700 font-semibold mb-1">Minimum Score (Marks)</label>
             <input
               type="number"
               value={minScore}
               onChange={(e) => setMinScore(parseFloat(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 mb-1">Minimum Percentage (%)</label>
+            <label className="block text-slate-700 font-semibold mb-1">Minimum Percentage (%)</label>
             <input
               type="number"
               value={minPercentage}
               onChange={(e) => setMinPercentage(parseFloat(e.target.value))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
 
           <div>
-            <label className="block text-slate-300 mb-1">Max Integrity Warnings Allowed</label>
+            <label className="block text-slate-700 font-semibold mb-1">Max Warnings Allowed</label>
             <input
               type="number"
               value={maxWarnings}
               onChange={(e) => setMaxWarnings(parseInt(e.target.value, 10))}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"
+              className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2.5 text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white transition"
             />
           </div>
         </div>
@@ -217,7 +233,7 @@ export default function ShortlistDashboardPage() {
             type="button"
             onClick={() => bulkShortlistMutation.mutate()}
             disabled={bulkShortlistMutation.isPending}
-            className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium shadow-lg shadow-emerald-600/20 transition flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
           >
             <Sparkles className="w-3.5 h-3.5" />
             <span>
@@ -228,22 +244,23 @@ export default function ShortlistDashboardPage() {
       </div>
 
       {/* Candidates Shortlisting Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5">
-        <h2 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-sm">
+        <h2 className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-4">
           Candidates Review &amp; Selection
         </h2>
 
         {isLoading ? (
           <div className="py-12 text-center text-xs text-slate-500">Loading candidates...</div>
         ) : list.length === 0 ? (
-          <div className="py-12 text-center text-xs text-slate-400">No candidates available.</div>
+          <div className="py-12 text-center text-xs text-slate-500">No candidates available.</div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead>
-                <tr className="border-b border-slate-800 text-slate-400 font-medium">
+                <tr className="border-b border-slate-200 text-slate-500 font-semibold">
                   <th className="pb-3 pr-2">Rank</th>
                   <th className="pb-3">Candidate</th>
+                  <th className="pb-3">Paper Set</th>
                   <th className="pb-3">Score &amp; %</th>
                   <th className="pb-3">Integrity Flags</th>
                   <th className="pb-3">Decision</th>
@@ -251,25 +268,36 @@ export default function ShortlistDashboardPage() {
                   <th className="pb-3 text-right">Quick Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-800/60 font-mono">
+              <tbody className="divide-y divide-slate-100 font-mono">
                 {list.map((c: any) => (
-                  <tr key={c.attemptId} className="hover:bg-slate-800/30 transition">
-                    <td className="py-3 font-bold text-indigo-400">#{c.rank}</td>
+                  <tr key={c.attemptId} className="hover:bg-slate-50 transition">
+                    <td className="py-3 font-bold text-orange-600">#{c.rank}</td>
                     <td className="py-3 font-sans">
-                      <div className="font-semibold text-slate-200">{c.candidate.name}</div>
-                      <div className="text-[11px] text-slate-400 font-mono">
+                      <div className="font-bold text-slate-900">{c.candidate.name}</div>
+                      <div className="text-[11px] text-slate-500 font-mono">
                         {c.candidate.rollNumber} • Div {c.candidate.division}
                       </div>
                     </td>
                     <td className="py-3">
-                      <div className="font-bold text-white">
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-mono font-bold ${
+                          (c.assignedSet || 'A').toUpperCase() === 'A'
+                            ? 'bg-orange-50 text-orange-700 border border-orange-200'
+                            : 'bg-amber-50 text-amber-700 border border-amber-200'
+                        }`}
+                      >
+                        Set {c.assignedSet || 'A'}
+                      </span>
+                    </td>
+                    <td className="py-3">
+                      <div className="font-bold text-slate-900">
                         {c.obtainedMarks} / {c.totalMarks}
                       </div>
-                      <div className="text-[11px] text-emerald-400">{c.percentage}%</div>
+                      <div className="text-[11px] text-emerald-600 font-semibold">{c.percentage}%</div>
                     </td>
                     <td className="py-3 font-sans">
                       {c.integrityFlagged ? (
-                        <span className="text-[10px] text-amber-400 font-medium">
+                        <span className="text-[10px] text-amber-700 font-bold">
                           ⚠ Flagged ({c.focusLossCount}x)
                         </span>
                       ) : (
@@ -280,12 +308,12 @@ export default function ShortlistDashboardPage() {
                     </td>
                     <td className="py-3 font-sans">
                       <span
-                        className={`text-[10px] font-medium px-2 py-0.5 rounded-full ${
+                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                           c.shortlistStatus === 'SHORTLISTED'
-                            ? 'bg-emerald-950 text-emerald-400 border border-emerald-800'
+                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                             : c.shortlistStatus === 'REJECTED'
-                            ? 'bg-rose-950 text-rose-400 border border-rose-800'
-                            : 'bg-slate-800 text-slate-400'
+                            ? 'bg-rose-50 text-rose-700 border border-rose-200'
+                            : 'bg-slate-100 text-slate-600 border border-slate-200'
                         }`}
                       >
                         {c.shortlistStatus}
@@ -298,21 +326,20 @@ export default function ShortlistDashboardPage() {
                             type="text"
                             value={currentNote}
                             onChange={(e) => setCurrentNote(e.target.value)}
-                            placeholder="Add note..."
-                            className="bg-slate-950 border border-slate-700 rounded px-2 py-1 text-[11px] text-white w-48"
+                            className="bg-slate-50 border border-slate-300 rounded-lg px-2 py-1 text-xs text-slate-900 w-full focus:bg-white"
                           />
                           <button
                             type="button"
-                            onClick={() => {
+                            onClick={() =>
                               setShortlistMutation.mutate({
                                 candidateId: c.candidate.id,
                                 status: c.shortlistStatus,
                                 notes: currentNote,
-                              });
-                            }}
-                            className="text-xs text-emerald-400"
+                              })
+                            }
+                            className="text-[10px] px-2 py-1 bg-orange-600 hover:bg-orange-700 text-white rounded font-bold shadow-sm"
                           >
-                            ✓
+                            Save
                           </button>
                         </div>
                       ) : (
@@ -321,10 +348,9 @@ export default function ShortlistDashboardPage() {
                             setEditingCandidateId(c.candidate.id);
                             setCurrentNote(c.reviewerNotes || '');
                           }}
-                          className="cursor-pointer text-[11px] text-slate-400 hover:text-slate-200 truncate flex items-center gap-1"
+                          className="cursor-pointer text-[11px] text-slate-600 hover:text-slate-900 truncate"
                         >
-                          <MessageSquare className="w-3 h-3 text-slate-500 shrink-0" />
-                          <span>{c.reviewerNotes || 'Click to add note'}</span>
+                          {c.reviewerNotes || <span className="italic text-slate-400">Add note...</span>}
                         </div>
                       )}
                     </td>
@@ -335,10 +361,9 @@ export default function ShortlistDashboardPage() {
                           setShortlistMutation.mutate({
                             candidateId: c.candidate.id,
                             status: ShortlistStatus.SHORTLISTED,
-                            notes: c.reviewerNotes,
                           })
                         }
-                        className="px-2 py-1 rounded bg-emerald-950 hover:bg-emerald-900 text-emerald-300 text-[11px] border border-emerald-800/60 font-medium transition"
+                        className="px-2 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-[10px] font-bold transition"
                       >
                         Shortlist
                       </button>
@@ -348,10 +373,9 @@ export default function ShortlistDashboardPage() {
                           setShortlistMutation.mutate({
                             candidateId: c.candidate.id,
                             status: ShortlistStatus.REJECTED,
-                            notes: c.reviewerNotes,
                           })
                         }
-                        className="px-2 py-1 rounded bg-rose-950 hover:bg-rose-900 text-rose-300 text-[11px] border border-rose-800/60 font-medium transition"
+                        className="px-2 py-1 rounded-lg bg-rose-50 text-rose-700 hover:bg-rose-100 border border-rose-200 text-[10px] font-bold transition"
                       >
                         Reject
                       </button>

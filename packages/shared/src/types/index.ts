@@ -18,6 +18,7 @@ import {
   CreateQuestionSchema,
   UpdateQuestionSchema,
   AssessmentSectionSchema,
+  AssessmentSetSchema,
   CreateAssessmentSchema,
   UpdateAssessmentSchema,
   CandidateRegisterSchema,
@@ -36,6 +37,7 @@ export type TestCase = z.infer<typeof TestCaseSchema>;
 export type CreateQuestionInput = z.infer<typeof CreateQuestionSchema>;
 export type UpdateQuestionInput = z.infer<typeof UpdateQuestionSchema>;
 export type AssessmentSection = z.infer<typeof AssessmentSectionSchema>;
+export type AssessmentSet = z.infer<typeof AssessmentSetSchema>;
 export type CreateAssessmentInput = z.infer<typeof CreateAssessmentSchema>;
 export type UpdateAssessmentInput = z.infer<typeof UpdateAssessmentSchema>;
 export type CandidateRegisterInput = z.infer<typeof CandidateRegisterSchema>;
@@ -74,6 +76,8 @@ export interface CandidateAttemptPayload {
   allowQuestionReturn: boolean;
   allowAnswerChange: boolean;
   codingEnabled: boolean;
+  assignedSet?: string; // 'A' | 'B'
+  setName?: string;     // 'Set A' | 'Set B'
   sections: Array<{
     name: string;
     category: QuestionCategory;
@@ -122,6 +126,7 @@ export interface AttemptResultSummary {
   };
   assessmentId: string;
   assessmentTitle: string;
+  assignedSet?: string;
   totalMarks: number;
   obtainedMarks: number;
   percentage: number;

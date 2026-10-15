@@ -17,6 +17,8 @@ export interface IAttempt extends Document {
   timeSpentSeconds: number;
   focusLossCount: number;
   integrityFlagged: boolean;
+  assignedSet: string; // 'A' | 'B'
+  setName: string;     // 'Set A' | 'Set B'
   randomizedQuestionOrder: string[]; // List of question IDs in candidate's randomized sequence
   randomizedOptionMap: Record<string, string[]>; // questionId -> randomized optionIds
   metadata?: Record<string, any>;
@@ -46,6 +48,8 @@ const AttemptSchema = new Schema<IAttempt>(
     timeSpentSeconds: { type: Number, default: 0 },
     focusLossCount: { type: Number, default: 0 },
     integrityFlagged: { type: Boolean, default: false },
+    assignedSet: { type: String, default: 'A', index: true },
+    setName: { type: String, default: 'Set A' },
     randomizedQuestionOrder: [{ type: String }],
     randomizedOptionMap: { type: Schema.Types.Mixed, default: {} },
     metadata: { type: Schema.Types.Mixed, default: {} },

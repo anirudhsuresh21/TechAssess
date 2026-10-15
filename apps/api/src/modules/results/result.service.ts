@@ -14,6 +14,7 @@ export async function getAssessmentResults(
   params: {
     search?: string;
     shortlistStatus?: ShortlistStatus;
+    set?: string;
     page?: number;
     limit?: number;
     sortBy?: string;
@@ -55,6 +56,8 @@ export async function getAssessmentResults(
         email: att.candidateId?.email || '',
       },
       status: att.status,
+      assignedSet: att.assignedSet || 'A',
+      setName: att.setName || `Set ${att.assignedSet || 'A'}`,
       totalMarks: att.totalMarks,
       obtainedMarks: att.obtainedMarks,
       percentage: att.percentage,
@@ -69,7 +72,7 @@ export async function getAssessmentResults(
     };
   });
 
-  // Filter in memory for search or shortlist status if provided
+  // Filter in memory for search or shortlist status or set if provided
   let filtered = allRows;
   if (params.search) {
     const q = params.search.toLowerCase();
@@ -83,6 +86,10 @@ export async function getAssessmentResults(
 
   if (params.shortlistStatus) {
     filtered = filtered.filter((r) => r.shortlistStatus === params.shortlistStatus);
+  }
+
+  if (params.set) {
+    filtered = filtered.filter((r) => r.assignedSet.toUpperCase() === params.set!.toUpperCase());
   }
 
   const total = filtered.length;
@@ -172,6 +179,28 @@ export async function getAssessmentAnalytics(assessmentId: string) {
         : 0,
   }));
 
+  // Per-set comparison metrics (Set A vs Set B)
+  const setAnalytics: Record<string, { totalAttempts: number; submittedCount: number; avgScore: number; highestScore: number; passPercentage: number }> = {};
+  ['A', 'B'].forEach((setCode) => {
+    const setAttempts = submittedAttempts.filter((a) => (a.assignedSet || 'A').toUpperCase() === setCode);
+    const setScores = setAttempts.map((a) => a.obtainedMarks);
+    const setAvg =
+      setScores.length > 0
+        ? Math.round((setScores.reduce((a, b) => a + b, 0) / setScores.length) * 10) / 10
+        : 0;
+    const setHighest = setScores.length > 0 ? Math.max(...setScores) : 0;
+    const setPassed = setAttempts.filter((a) => a.isPassed).length;
+    const setPassPct =
+      setAttempts.length > 0 ? Math.round((setPassed / setAttempts.length) * 1000) / 10 : 0;
+    setAnalytics[setCode] = {
+      totalAttempts: attempts.filter((a) => (a.assignedSet || 'A').toUpperCase() === setCode).length,
+      submittedCount: setAttempts.length,
+      avgScore: setAvg,
+      highestScore: setHighest,
+      passPercentage: setPassPct,
+    };
+  });
+
   return {
     overview: {
       totalCandidates,
@@ -184,6 +213,7 @@ export async function getAssessmentAnalytics(assessmentId: string) {
       passPercentage,
       integrityFlaggedCount,
     },
+    setAnalytics,
     scoreDistribution: distribution,
     sectionAverages,
   };
@@ -209,6 +239,7 @@ export async function exportAssessmentResultsCsv(assessmentId: string): Promise<
     'Rank',
     'Roll Number',
     'Full Name',
+    'Question Set',
     'Division',
     'Email',
     'Total Marks',
@@ -230,6 +261,7 @@ export async function exportAssessmentResultsCsv(assessmentId: string): Promise<
       idx + 1,
       att.candidateId?.rollNumber || 'N/A',
       att.candidateId?.name || 'N/A',
+      att.setName || `Set ${att.assignedSet || 'A'}`,
       att.candidateId?.division || 'N/A',
       att.candidateId?.email || 'N/A',
       att.totalMarks,

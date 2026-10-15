@@ -14,8 +14,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#090d16] text-slate-100 antialiased selection:bg-indigo-500 selection:text-white min-h-screen">
+    <html lang="en">
+      <body className="bg-[#f8fafc] text-slate-900 antialiased selection:bg-orange-500 selection:text-white min-h-screen">
         <Providers>{children}</Providers>
       </body>
     </html>

@@ -174,6 +174,53 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
 
   const nextVersionNumber = assessment.currentVersion + 1;
 
+  // Build Sets snapshot (Set A and Set B)
+  const snapshotSets: any[] = [];
+  if (assessment.sets && assessment.sets.length > 0) {
+    for (const set of assessment.sets) {
+      const setSections = [];
+      for (const section of (set.sections || [])) {
+        const qDocs = await Question.find({
+          _id: { $in: section.questionIds },
+          isArchived: false,
+        }).lean();
+        setSections.push({
+          name: section.name,
+          category: section.category,
+          description: section.description,
+          timeLimitMinutes: section.timeLimitMinutes,
+          questions: qDocs,
+        });
+      }
+      snapshotSets.push({
+        setCode: set.setCode || 'A',
+        name: set.name || `Set ${set.setCode || 'A'}`,
+        description: set.description,
+        sections: setSections.length > 0 ? setSections : versionSections,
+      });
+    }
+  } else {
+    // Default dual Set A and Set B configuration
+    snapshotSets.push({
+      setCode: 'A',
+      name: 'Set A',
+      description: 'Standard Question Paper (Set A)',
+      sections: versionSections,
+    });
+    snapshotSets.push({
+      setCode: 'B',
+      name: 'Set B',
+      description: 'Alternate Question Paper (Set B)',
+      sections: versionSections.map(s => ({
+        name: s.name,
+        category: s.category,
+        description: s.description,
+        timeLimitMinutes: s.timeLimitMinutes,
+        questions: [...s.questions].reverse(),
+      })),
+    });
+  }
+
   // Create immutable snapshot
   const snapshotData = {
     title: assessment.title,
@@ -193,6 +240,8 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
     allowRetake: assessment.allowRetake,
     codingEnabled: assessment.codingEnabled,
     unansweredZeroMarks: assessment.unansweredZeroMarks,
+    setsEnabled: assessment.setsEnabled !== false,
+    sets: snapshotSets,
     integritySettings: assessment.integritySettings,
     sections: versionSections,
   };

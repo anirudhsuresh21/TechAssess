@@ -63,6 +63,14 @@ app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
 // API v1 routes
 const v1Router = express.Router();
+v1Router.get('/health', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    service: 'TechAssess API',
+    time: new Date().toISOString(),
+    uptime: process.uptime(),
+  });
+});
 v1Router.use('/auth', authRouter);
 v1Router.use('/assessments', assessmentRouter);
 v1Router.use('/questions', questionRouter);
