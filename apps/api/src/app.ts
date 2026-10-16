@@ -3,7 +3,9 @@ import cors from 'cors';
 import helmet from 'helmet';
 import cookieParser from 'cookie-parser';
 import swaggerUi from 'swagger-ui-express';
+import mongoose from 'mongoose';
 import { config } from './config/environment';
+import { connectDatabase } from './config/database';
 import { generalLimiter } from './middleware/rateLimiter';
 import { errorHandler, AppError } from './middleware/errorHandler';
 import { swaggerDocument } from './utils/swagger';
@@ -50,9 +52,12 @@ app.use(generalLimiter);
 
 // Health check
 app.get('/health', (req: Request, res: Response) => {
+  const dbStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const dbState = dbStates[mongoose.connection.readyState] || 'unknown';
   res.json({
     status: 'ok',
     service: 'TechAssess API',
+    database: dbState,
     time: new Date().toISOString(),
     uptime: process.uptime(),
   });
@@ -61,12 +66,31 @@ app.get('/health', (req: Request, res: Response) => {
 // Swagger documentation
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
 
+// Ensure DB connection is established before servicing API routes (serverless cold start resilience)
+app.use(async (req: Request, res: Response, next) => {
+  if (req.path === '/health' || req.path === '/api/v1/health' || req.path.startsWith('/api/docs')) {
+    return next();
+  }
+  try {
+    await connectDatabase();
+    next();
+  } catch (err: any) {
+    res.status(503).json({
+      success: false,
+      error: `Database connection unavailable: ${err.message}`,
+    });
+  }
+});
+
 // API v1 routes
 const v1Router = express.Router();
 v1Router.get('/health', (req: Request, res: Response) => {
+  const dbStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const dbState = dbStates[mongoose.connection.readyState] || 'unknown';
   res.json({
     status: 'ok',
     service: 'TechAssess API',
+    database: dbState,
     time: new Date().toISOString(),
     uptime: process.uptime(),
   });
