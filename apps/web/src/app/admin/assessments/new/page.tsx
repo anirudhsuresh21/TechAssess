@@ -269,7 +269,7 @@ export default function CreateAssessmentPage() {
         await apiRequest(`/assessments/${created._id}/publish`, { method: 'POST' });
       }
 
-      router.push('/admin/assessments');
+      router.push(`/admin/assessments/${created._id}/paper`);
     } catch (err: any) {
       setError(err.message || 'Failed to create assessment');
     } finally {

@@ -75,6 +75,7 @@ export async function getAssessments(filter: {
 export async function getAssessmentById(id: string) {
   const assessment = await Assessment.findById(id)
     .populate('sections.questionIds')
+    .populate('sets.sections.questionIds')
     .populate('createdBy', 'name email')
     .lean();
   if (!assessment) {

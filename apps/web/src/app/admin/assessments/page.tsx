@@ -16,6 +16,7 @@ import {
   Award,
   Layers,
   Users,
+  FileText,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
@@ -177,7 +178,15 @@ export default function AssessmentsListPage() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 self-start sm:self-auto">
+                <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                  <Link
+                    href={`/admin/assessments/${exam._id}/paper`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-800 hover:bg-slate-200 border border-slate-300 text-xs font-bold transition shadow-sm"
+                  >
+                    <FileText className="w-3.5 h-3.5 text-slate-600" />
+                    <span>View Paper</span>
+                  </Link>
+
                   <Link
                     href={`/admin/assessments/${exam._id}/students`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition shadow-sm"
