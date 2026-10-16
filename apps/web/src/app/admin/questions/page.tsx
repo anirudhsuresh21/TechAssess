@@ -50,14 +50,17 @@ export default function QuestionBankPage() {
     { id: 'opt_4', text: '', isCorrect: false },
   ]);
 
+  const [limit, setLimit] = useState(100);
+
   const { data: questions, isLoading } = useQuery({
-    queryKey: ['questions', categoryFilter, difficultyFilter, typeFilter, searchTerm],
+    queryKey: ['questions', categoryFilter, difficultyFilter, typeFilter, searchTerm, limit],
     queryFn: () => {
       const params = new URLSearchParams();
       if (categoryFilter) params.set('category', categoryFilter);
       if (difficultyFilter) params.set('difficulty', difficultyFilter);
       if (typeFilter) params.set('type', typeFilter);
       if (searchTerm) params.set('search', searchTerm);
+      params.set('limit', String(limit));
       return apiRequest(`/questions?${params.toString()}`);
     },
   });
@@ -204,6 +207,28 @@ export default function QuestionBankPage() {
               </option>
             ))}
           </select>
+
+          <select
+            value={limit}
+            onChange={(e) => setLimit(Number(e.target.value))}
+            className="bg-orange-50 border border-orange-200 text-orange-800 font-semibold rounded-xl px-3 py-2 text-xs focus:bg-white"
+          >
+            <option value={20}>Show 20 questions</option>
+            <option value={50}>Show 50 questions</option>
+            <option value={100}>Show 100 questions</option>
+            <option value={200}>Show 200 questions</option>
+            <option value={1000}>Show All questions</option>
+          </select>
+        </div>
+
+        <div className="flex items-center justify-between text-xs text-slate-500 pt-1 border-t border-slate-100">
+          <span>
+            Viewing <strong className="text-slate-800">{questions?.length || 0}</strong> questions
+            {categoryFilter ? ` in ${categoryFilter.replace(/_/g, ' ')}` : ' across all categories'}
+          </span>
+          <span className="text-[11px] text-slate-400 font-mono">
+            Bank Capacity: 1000 items
+          </span>
         </div>
       </div>
 

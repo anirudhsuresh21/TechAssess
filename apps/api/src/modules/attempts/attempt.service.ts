@@ -72,10 +72,12 @@ export async function startAttempt(accessCode: string, candidateId: string, pref
     return getAttemptPayload(attempt, version);
   }
 
-  // Determine assigned set (alternating parity or preferred)
+  // Determine assigned set
   let assignedSetCode = 'A';
   if (preferredSet && ['A', 'B'].includes(preferredSet.toUpperCase())) {
     assignedSetCode = preferredSet.toUpperCase();
+  } else if (candidate.assignedSet && ['A', 'B'].includes(candidate.assignedSet.toUpperCase())) {
+    assignedSetCode = candidate.assignedSet.toUpperCase();
   } else if (version.snapshotData.setsEnabled !== false) {
     const existingAttemptsCount = await Attempt.countDocuments({ assessmentId: assessment._id });
     assignedSetCode = existingAttemptsCount % 2 === 0 ? 'A' : 'B';

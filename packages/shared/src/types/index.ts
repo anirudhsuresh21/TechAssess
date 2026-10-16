@@ -22,6 +22,10 @@ import {
   CreateAssessmentSchema,
   UpdateAssessmentSchema,
   CandidateRegisterSchema,
+  CandidateLoginSchema,
+  AdminAddCandidateSchema,
+  AdminBulkAddCandidatesSchema,
+  AdminAssignSetSchema,
   StartAttemptSchema,
   SaveAnswerSchema,
   IntegrityEventSchema,
@@ -41,6 +45,10 @@ export type AssessmentSet = z.infer<typeof AssessmentSetSchema>;
 export type CreateAssessmentInput = z.infer<typeof CreateAssessmentSchema>;
 export type UpdateAssessmentInput = z.infer<typeof UpdateAssessmentSchema>;
 export type CandidateRegisterInput = z.infer<typeof CandidateRegisterSchema>;
+export type CandidateLoginInput = z.infer<typeof CandidateLoginSchema>;
+export type AdminAddCandidateInput = z.infer<typeof AdminAddCandidateSchema>;
+export type AdminBulkAddCandidatesInput = z.infer<typeof AdminBulkAddCandidatesSchema>;
+export type AdminAssignSetInput = z.infer<typeof AdminAssignSetSchema>;
 export type StartAttemptInput = z.infer<typeof StartAttemptSchema>;
 export type SaveAnswerInput = z.infer<typeof SaveAnswerSchema>;
 export type IntegrityEventInput = z.infer<typeof IntegrityEventSchema>;

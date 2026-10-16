@@ -87,9 +87,10 @@ export default function CreateAssessmentPage() {
   const [error, setError] = useState('');
 
   // Fetch all available questions from question bank
+  // Fetch all available questions from question bank (support up to 1000 questions)
   const { data: questionBankData } = useQuery({
     queryKey: ['questions-bank-for-wizard'],
-    queryFn: () => apiRequest('/questions?limit=100'),
+    queryFn: () => apiRequest('/questions?limit=1000'),
   });
 
   const availableQuestions = questionBankData || [];
@@ -125,6 +126,49 @@ export default function CreateAssessmentPage() {
     );
   };
 
+  const handleAddSectionB = () => {
+    setSetBSections([
+      ...setBSections,
+      {
+        name: `Section ${setBSections.length + 1}`,
+        category: QuestionCategory.PROGRAMMING_DEBUGGING,
+        description: '',
+        questionIds: [],
+      },
+    ]);
+  };
+
+  const handleRemoveSectionB = (idx: number) => {
+    setSetBSections(setBSections.filter((_, i) => i !== idx));
+  };
+
+  const toggleQuestionInSectionB = (sectionIdx: number, qId: string) => {
+    setSetBSections(
+      setBSections.map((sec, i) => {
+        if (i !== sectionIdx) return sec;
+        const exists = sec.questionIds.includes(qId);
+        return {
+          ...sec,
+          questionIds: exists
+            ? sec.questionIds.filter((id) => id !== qId)
+            : [...sec.questionIds, qId],
+        };
+      })
+    );
+  };
+
+  const copyStructureToSetB = () => {
+    setSetBSections(
+      sections.map((sec) => ({
+        name: sec.name,
+        category: sec.category,
+        description: sec.description,
+        timeLimitMinutes: sec.timeLimitMinutes,
+        questionIds: [], // Empty questions so admin can choose distinct questions for Set B!
+      }))
+    );
+  };
+
   const handleSubmit = async (publishDirectly: boolean = false) => {
     setError('');
 
@@ -134,20 +178,29 @@ export default function CreateAssessmentPage() {
     }
 
     if (sections.length === 0) {
-      setError('You must add at least one question section.');
+      setError('You must add at least one question section for Set A.');
       return;
     }
 
     const emptySection = sections.find((s) => s.questionIds.length === 0);
     if (publishDirectly && emptySection) {
-      setError(`Section "${emptySection.name}" has no questions selected. Assign questions before publishing.`);
+      setError(`Set A Section "${emptySection.name}" has no questions selected. Assign questions before publishing.`);
       return;
+    }
+
+    const finalSetB = setBSections.length > 0 ? setBSections : sections;
+    if (publishDirectly && setsEnabled && setBSections.length > 0) {
+      const emptySectionB = setBSections.find((s) => s.questionIds.length === 0);
+      if (emptySectionB) {
+        setError(`Set B Section "${emptySectionB.name}" has no questions selected. Assign questions or copy Set A before publishing.`);
+        return;
+      }
     }
 
     setIsLoading(true);
 
     try {
-      // Build Sets A and B payloads
+      // Build Sets A and B payloads (with genuinely distinct question papers)
       const setsPayload = setsEnabled
         ? [
             {
@@ -165,13 +218,13 @@ export default function CreateAssessmentPage() {
             {
               setCode: 'B',
               name: 'Set B',
-              description: 'Alternate Balanced Recruitment Question Paper (Set B)',
-              sections: (setBSections.length > 0 ? setBSections : sections).map((s) => ({
+              description: 'Alternate Distinct Recruitment Question Paper (Set B)',
+              sections: finalSetB.map((s) => ({
                 name: s.name,
                 category: s.category,
                 description: s.description,
                 timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
-                questionIds: [...s.questionIds].reverse(),
+                questionIds: s.questionIds,
               })),
             },
           ]
@@ -492,161 +545,397 @@ export default function CreateAssessmentPage() {
         </div>
       </div>
 
-      {/* 4. Question Section Builder */}
+      {/* 4. Question Section Builder with Distinct Sets A & B */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-sm">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-sm font-bold uppercase tracking-wider text-orange-600">
-              4. Examination Sections &amp; Questions
+              4. Examination Blueprint &amp; Distinct Sets
             </h2>
             <p className="text-xs text-slate-500 mt-0.5">
-              Organize questions by section. Questions mapped here will automatically generate Set A and Set B snapshots.
+              Create two completely distinct question papers for Set A and Set B (not just jumbled questions).
             </p>
           </div>
-          <button
-            type="button"
-            onClick={handleAddSection}
-            className="px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 text-xs font-bold transition flex items-center gap-1 shadow-sm"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            <span>Add Section</span>
-          </button>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveSetTab('A')}
+              className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                activeSetTab === 'A'
+                  ? 'bg-orange-600 text-white'
+                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              <span>Set A ({sections.reduce((acc, s) => acc + s.questionIds.length, 0)} Qs)</span>
+            </button>
+
+            {setsEnabled && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (setBSections.length === 0) {
+                    copyStructureToSetB();
+                  }
+                  setActiveSetTab('B');
+                }}
+                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                  activeSetTab === 'B'
+                    ? 'bg-orange-600 text-white'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Set B ({setBSections.reduce((acc, s) => acc + s.questionIds.length, 0)} Qs)</span>
+              </button>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-6">
-          {sections.map((section, sIdx) => (
-            <div
-              key={sIdx}
-              className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4"
+        {/* Active Set Tab Notice */}
+        <div className="p-3 rounded-xl bg-orange-50 border border-orange-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-orange-900">
+              Currently Editing: {activeSetTab === 'A' ? 'Question Paper Set A' : 'Question Paper Set B (Distinct)'}
+            </span>
+          </div>
+
+          {activeSetTab === 'B' && (
+            <button
+              type="button"
+              onClick={copyStructureToSetB}
+              className="text-xs text-orange-700 hover:text-orange-900 underline font-semibold self-start sm:self-auto"
             >
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <input
-                    type="text"
-                    value={section.name}
-                    onChange={(e) =>
-                      setSections(
-                        sections.map((s, i) =>
-                          i === sIdx ? { ...s, name: e.target.value } : s
-                        )
-                      )
-                    }
-                    placeholder="Section Title"
-                    className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  />
+              Reset / Copy Set A Section Blueprint
+            </button>
+          )}
+        </div>
 
-                  <select
-                    value={section.category}
-                    onChange={(e) =>
-                      setSections(
-                        sections.map((s, i) =>
-                          i === sIdx ? { ...s, category: e.target.value } : s
-                        )
-                      )
-                    }
-                    className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
-                  >
-                    {Object.values(QuestionCategory).map((cat) => (
-                      <option key={cat} value={cat}>
-                        {cat}
-                      </option>
-                    ))}
-                  </select>
+        {/* Set A Sections */}
+        {activeSetTab === 'A' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700">Set A Sections ({sections.length})</span>
+              <button
+                type="button"
+                onClick={handleAddSection}
+                className="px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 text-xs font-bold transition flex items-center gap-1 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Section to Set A</span>
+              </button>
+            </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-slate-500 shrink-0">Time (mins):</span>
+            {sections.map((section, sIdx) => (
+              <div
+                key={sIdx}
+                className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <input
-                      type="number"
-                      value={section.timeLimitMinutes || ''}
+                      type="text"
+                      value={section.name}
                       onChange={(e) =>
                         setSections(
                           sections.map((s, i) =>
-                            i === sIdx
-                              ? {
-                                  ...s,
-                                  timeLimitMinutes: e.target.value
-                                    ? Number(e.target.value)
-                                    : undefined,
-                                }
-                              : s
+                            i === sIdx ? { ...s, name: e.target.value } : s
                           )
                         )
                       }
-                      placeholder="Optional"
-                      className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      placeholder="Section Title"
+                      className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
                     />
-                  </div>
-                </div>
 
-                {sections.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveSection(sIdx)}
-                    className="p-2 text-slate-400 hover:text-rose-600 transition"
-                    title="Remove Section"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
+                    <select
+                      value={section.category}
+                      onChange={(e) =>
+                        setSections(
+                          sections.map((s, i) =>
+                            i === sIdx ? { ...s, category: e.target.value } : s
+                          )
+                        )
+                      }
+                      className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                    >
+                      {Object.values(QuestionCategory).map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
 
-              {/* Questions Picker for this section */}
-              <div>
-                <div className="flex items-center justify-between text-xs mb-2">
-                  <span className="text-slate-600 font-semibold">
-                    Assigned Questions ({section.questionIds.length})
-                  </span>
-                  <span className="text-[11px] text-orange-600 font-medium">
-                    Click items below to toggle
-                  </span>
-                </div>
-
-                <div className="max-h-56 overflow-y-auto space-y-1.5 p-2 bg-white rounded-xl border border-slate-200">
-                  {availableQuestions.length === 0 ? (
-                    <div className="text-center py-4 text-xs text-slate-500">
-                      No questions found in question bank.
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-slate-500 shrink-0">Time (mins):</span>
+                      <input
+                        type="number"
+                        value={section.timeLimitMinutes || ''}
+                        onChange={(e) =>
+                          setSections(
+                            sections.map((s, i) =>
+                              i === sIdx
+                                ? {
+                                    ...s,
+                                    timeLimitMinutes: e.target.value
+                                      ? Number(e.target.value)
+                                      : undefined,
+                                  }
+                                : s
+                            )
+                          )
+                        }
+                        placeholder="Optional"
+                        className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
                     </div>
-                  ) : (
-                    availableQuestions.map((q: any) => {
-                      const isSelected = section.questionIds.includes(q._id);
-                      return (
-                        <div
-                          key={q._id}
-                          onClick={() => toggleQuestionInSection(sIdx, q._id)}
-                          className={`p-2.5 rounded-lg border text-xs cursor-pointer transition flex items-center justify-between gap-3 ${
-                            isSelected
-                              ? 'bg-orange-50 border-orange-400 text-orange-950 font-medium'
-                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2 truncate">
-                            <div
-                              className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
-                                isSelected ? 'bg-orange-500 text-white' : 'border border-slate-300'
-                              }`}
-                            >
-                              {isSelected && <Check className="w-3 h-3" />}
-                            </div>
-                            <span className="truncate">{q.title}</span>
-                          </div>
+                  </div>
 
-                          <div className="flex items-center gap-2 shrink-0 text-[10px]">
-                            <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
-                              {q.category}
-                            </span>
-                            <span className="font-mono text-orange-600 font-bold">
-                              {q.marks}m
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })
+                  {sections.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSection(sIdx)}
+                      className="p-2 text-slate-400 hover:text-rose-600 transition"
+                      title="Remove Section"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   )}
                 </div>
+
+                {/* Questions Picker for this Set A section */}
+                <div>
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className="text-slate-600 font-semibold">
+                      Set A Assigned Questions ({section.questionIds.length})
+                    </span>
+                    <span className="text-[11px] text-orange-600 font-medium">
+                      Select questions specifically for Set A
+                    </span>
+                  </div>
+
+                  <div className="max-h-56 overflow-y-auto space-y-1.5 p-2 bg-white rounded-xl border border-slate-200">
+                    {availableQuestions.length === 0 ? (
+                      <div className="text-center py-4 text-xs text-slate-500">
+                        No questions found in question bank.
+                      </div>
+                    ) : (
+                      availableQuestions.map((q: any) => {
+                        const isSelected = section.questionIds.includes(q._id);
+                        const isUsedInB = setBSections.some((s) => s.questionIds.includes(q._id));
+                        return (
+                          <div
+                            key={q._id}
+                            onClick={() => toggleQuestionInSection(sIdx, q._id)}
+                            className={`p-2.5 rounded-lg border text-xs cursor-pointer transition flex items-center justify-between gap-3 ${
+                              isSelected
+                                ? 'bg-orange-50 border-orange-400 text-orange-950 font-medium'
+                                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2 truncate">
+                              <div
+                                className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                                  isSelected ? 'bg-orange-500 text-white' : 'border border-slate-300'
+                                }`}
+                              >
+                                {isSelected && <Check className="w-3 h-3" />}
+                              </div>
+                              <span className="truncate">{q.title}</span>
+                              {isUsedInB && (
+                                <span className="text-[10px] text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200 shrink-0">
+                                  In Set B
+                                </span>
+                              )}
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                {q.category}
+                              </span>
+                              <span className="font-mono text-orange-600 font-bold">
+                                {q.marks}m
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
+            ))}
+          </div>
+        )}
+
+        {/* Set B Sections */}
+        {activeSetTab === 'B' && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-bold text-slate-700">Set B Sections ({setBSections.length})</span>
+              <button
+                type="button"
+                onClick={handleAddSectionB}
+                className="px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 text-xs font-bold transition flex items-center gap-1 shadow-sm"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Add Section to Set B</span>
+              </button>
             </div>
-          ))}
-        </div>
+
+            {setBSections.length === 0 ? (
+              <div className="p-8 text-center bg-slate-50 border border-slate-200 rounded-2xl space-y-3">
+                <p className="text-xs text-slate-600">No sections added to Set B yet.</p>
+                <button
+                  type="button"
+                  onClick={copyStructureToSetB}
+                  className="px-4 py-2 rounded-xl bg-orange-600 text-white text-xs font-bold shadow-sm"
+                >
+                  Copy Set A Structure to Set B
+                </button>
+              </div>
+            ) : (
+              setBSections.map((section, sIdx) => (
+                <div
+                  key={sIdx}
+                  className="bg-slate-50 border border-slate-200 rounded-2xl p-5 space-y-4"
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <input
+                        type="text"
+                        value={section.name}
+                        onChange={(e) =>
+                          setSetBSections(
+                            setBSections.map((s, i) =>
+                              i === sIdx ? { ...s, name: e.target.value } : s
+                            )
+                          )
+                        }
+                        placeholder="Section Title"
+                        className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      />
+
+                      <select
+                        value={section.category}
+                        onChange={(e) =>
+                          setSetBSections(
+                            setBSections.map((s, i) =>
+                              i === sIdx ? { ...s, category: e.target.value } : s
+                            )
+                          )
+                        }
+                        className="bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                      >
+                        {Object.values(QuestionCategory).map((cat) => (
+                          <option key={cat} value={cat}>
+                            {cat}
+                          </option>
+                        ))}
+                      </select>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-slate-500 shrink-0">Time (mins):</span>
+                        <input
+                          type="number"
+                          value={section.timeLimitMinutes || ''}
+                          onChange={(e) =>
+                            setSetBSections(
+                              setBSections.map((s, i) =>
+                                i === sIdx
+                                  ? {
+                                      ...s,
+                                      timeLimitMinutes: e.target.value
+                                        ? Number(e.target.value)
+                                        : undefined,
+                                    }
+                                  : s
+                              )
+                            )
+                          }
+                          placeholder="Optional"
+                          className="w-full bg-white border border-slate-300 rounded-xl px-3 py-2 text-xs text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500"
+                        />
+                      </div>
+                    </div>
+
+                    {setBSections.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSectionB(sIdx)}
+                        className="p-2 text-slate-400 hover:text-rose-600 transition"
+                        title="Remove Section"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Questions Picker for this Set B section */}
+                  <div>
+                    <div className="flex items-center justify-between text-xs mb-2">
+                      <span className="text-slate-600 font-semibold">
+                        Set B Assigned Questions ({section.questionIds.length})
+                      </span>
+                      <span className="text-[11px] text-orange-600 font-medium">
+                        Select distinct questions for Set B
+                      </span>
+                    </div>
+
+                    <div className="max-h-56 overflow-y-auto space-y-1.5 p-2 bg-white rounded-xl border border-slate-200">
+                      {availableQuestions.length === 0 ? (
+                        <div className="text-center py-4 text-xs text-slate-500">
+                          No questions found in question bank.
+                        </div>
+                      ) : (
+                        availableQuestions.map((q: any) => {
+                          const isSelected = section.questionIds.includes(q._id);
+                          const isUsedInA = sections.some((s) => s.questionIds.includes(q._id));
+                          return (
+                            <div
+                              key={q._id}
+                              onClick={() => toggleQuestionInSectionB(sIdx, q._id)}
+                              className={`p-2.5 rounded-lg border text-xs cursor-pointer transition flex items-center justify-between gap-3 ${
+                                isSelected
+                                  ? 'bg-orange-50 border-orange-400 text-orange-950 font-medium'
+                                  : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2 truncate">
+                                <div
+                                  className={`w-4 h-4 rounded flex items-center justify-center shrink-0 ${
+                                    isSelected ? 'bg-orange-500 text-white' : 'border border-slate-300'
+                                  }`}
+                                >
+                                  {isSelected && <Check className="w-3 h-3" />}
+                                </div>
+                                <span className="truncate">{q.title}</span>
+                                {isUsedInA && (
+                                  <span className="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 shrink-0">
+                                    In Set A
+                                  </span>
+                                )}
+                              </div>
+
+                              <div className="flex items-center gap-2 shrink-0 text-[10px]">
+                                <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 border border-slate-200">
+                                  {q.category}
+                                </span>
+                                <span className="font-mono text-orange-600 font-bold">
+                                  {q.marks}m
+                                </span>
+                              </div>
+                            </div>
+                          );
+                        })
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}

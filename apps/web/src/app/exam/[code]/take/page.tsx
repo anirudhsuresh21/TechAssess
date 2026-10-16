@@ -14,6 +14,7 @@ import {
   Wifi,
   RefreshCw,
   Layers,
+  User,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import {
@@ -32,6 +33,15 @@ export default function LiveExaminationPage() {
 
   const [attemptData, setAttemptData] = useState<CandidateAttemptPayload | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [candidateInfo, setCandidateInfo] = useState<{ name: string; roll: string } | null>(null);
+
+  useEffect(() => {
+    const name = localStorage.getItem('candidate_name');
+    const roll = localStorage.getItem('candidate_roll');
+    if (name || roll) {
+      setCandidateInfo({ name: name || 'Student', roll: roll || '' });
+    }
+  }, []);
 
   // Local answers state: questionId -> answer object
   const [answers, setAnswers] = useState<Record<string, any>>({});
@@ -439,12 +449,21 @@ export default function LiveExaminationPage() {
           </span>
         </div>
 
-        {/* Finish Examination Button */}
-        <div>
+        {/* Candidate Info & Finish Examination Button */}
+        <div className="flex items-center gap-2.5 sm:gap-3">
+          {candidateInfo && (
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs">
+              <User className="w-3.5 h-3.5 text-orange-600 shrink-0" />
+              <div className="leading-tight">
+                <span className="font-bold text-slate-800">{candidateInfo.name}</span>
+                <span className="font-mono text-slate-500 text-[11px] ml-1.5">({candidateInfo.roll})</span>
+              </div>
+            </div>
+          )}
           <button
             type="button"
             onClick={() => setShowSubmitModal(true)}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold shadow-sm transition flex items-center gap-1.5 shrink-0"
           >
             <Send className="w-3.5 h-3.5" />
             <span>Finish Examination</span>

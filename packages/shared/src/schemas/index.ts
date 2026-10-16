@@ -112,11 +112,35 @@ export const UpdateAssessmentSchema = CreateAssessmentSchema.partial();
 export const CandidateRegisterSchema = z.object({
   name: z.string().min(2, 'Full name is required'),
   rollNumber: z.string().min(1, 'Roll number is required').toUpperCase(),
-  division: z.string().min(1, 'Division is required').toUpperCase(),
-  email: z.string().email('Valid email is required'),
+  division: z.string().optional().default('A'),
+  email: z.string().optional().default(''),
   phone: z.string().optional(),
   accessCode: z.string().min(4, 'Access code is required').toUpperCase(),
   preferredSet: z.string().optional(),
+  assignedSet: z.enum(['A', 'B']).optional().default('A'),
+});
+
+export const CandidateLoginSchema = z.object({
+  accessCode: z.string().min(4, 'Access code is required').toUpperCase(),
+  rollNumber: z.string().min(1, 'Roll number is required').toUpperCase(),
+  password: z.string().optional(),
+});
+
+export const AdminAddCandidateSchema = z.object({
+  name: z.string().min(2, 'Full student name is required'),
+  rollNumber: z.string().min(1, 'Roll number is required').toUpperCase(),
+  division: z.string().optional().default('A'),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  assignedSet: z.enum(['A', 'B']).optional().default('A'),
+});
+
+export const AdminBulkAddCandidatesSchema = z.object({
+  candidates: z.array(AdminAddCandidateSchema),
+});
+
+export const AdminAssignSetSchema = z.object({
+  assignedSet: z.enum(['A', 'B']),
 });
 
 export const StartAttemptSchema = z.object({

@@ -15,6 +15,7 @@ import {
   Clock,
   Award,
   Layers,
+  Users,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
@@ -177,6 +178,14 @@ export default function AssessmentsListPage() {
                 </div>
 
                 <div className="flex items-center gap-2 self-start sm:self-auto">
+                  <Link
+                    href={`/admin/assessments/${exam._id}/students`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-bold transition shadow-sm"
+                  >
+                    <Users className="w-3.5 h-3.5" />
+                    <span>Students &amp; Sets</span>
+                  </Link>
+
                   <Link
                     href={`/admin/results/${exam._id}`}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 text-xs font-bold transition shadow-sm"

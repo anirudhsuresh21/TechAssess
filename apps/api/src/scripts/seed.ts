@@ -306,32 +306,63 @@ async function seed() {
       qMapByCategory[q.category].push(q._id as any);
     });
 
-    const sections = [
+    // Split questions per category into distinct non-overlapping question papers for Set A and Set B
+    const setASections = [
       {
-        name: 'Aptitude & Logical Reasoning',
+        name: 'Aptitude & Logical Reasoning (Set A)',
         category: QuestionCategory.NUMERICAL_APTITUDE,
-        description: 'Evaluates numerical agility, data interpretation, and pattern reasoning.',
+        description: 'Set A: Quantitative aptitude, sequence analysis, and logical deduction.',
         timeLimitMinutes: 20,
         questionIds: [
-          ...(qMapByCategory[QuestionCategory.NUMERICAL_APTITUDE] || []),
-          ...(qMapByCategory[QuestionCategory.LOGICAL_REASONING] || []),
+          ...((qMapByCategory[QuestionCategory.NUMERICAL_APTITUDE] || []).filter((_, idx) => idx % 2 === 0)),
+          ...((qMapByCategory[QuestionCategory.LOGICAL_REASONING] || []).filter((_, idx) => idx % 2 === 0)),
         ],
       },
       {
-        name: 'Computer Fundamentals',
+        name: 'Computer Fundamentals (Set A)',
         category: QuestionCategory.COMPUTER_FUNDAMENTALS,
-        description: 'Core concepts in Operating Systems, Networks, Linux, and SQL.',
+        description: 'Set A: Operating Systems, Computer Networks, and Linux internals.',
         timeLimitMinutes: 20,
-        questionIds: qMapByCategory[QuestionCategory.COMPUTER_FUNDAMENTALS] || [],
+        questionIds: (qMapByCategory[QuestionCategory.COMPUTER_FUNDAMENTALS] || []).filter((_, idx) => idx % 2 === 0),
       },
       {
-        name: 'Programming & Practical Debugging',
+        name: 'Programming & Practical Debugging (Set A)',
         category: QuestionCategory.PROGRAMMING_DEBUGGING,
-        description: 'Code output prediction, syntax reasoning, and systems troubleshooting.',
+        description: 'Set A: Code execution tracing and system troubleshooting.',
         timeLimitMinutes: 20,
         questionIds: [
-          ...(qMapByCategory[QuestionCategory.PROGRAMMING_DEBUGGING] || []),
-          ...(qMapByCategory[QuestionCategory.PRACTICAL_PROBLEM_SOLVING] || []),
+          ...((qMapByCategory[QuestionCategory.PROGRAMMING_DEBUGGING] || []).filter((_, idx) => idx % 2 === 0)),
+          ...((qMapByCategory[QuestionCategory.PRACTICAL_PROBLEM_SOLVING] || []).filter((_, idx) => idx % 2 === 0)),
+        ],
+      },
+    ];
+
+    const setBSections = [
+      {
+        name: 'Aptitude & Logical Reasoning (Set B)',
+        category: QuestionCategory.NUMERICAL_APTITUDE,
+        description: 'Set B: Quantitative aptitude, sequence analysis, and logical deduction.',
+        timeLimitMinutes: 20,
+        questionIds: [
+          ...((qMapByCategory[QuestionCategory.NUMERICAL_APTITUDE] || []).filter((_, idx) => idx % 2 !== 0)),
+          ...((qMapByCategory[QuestionCategory.LOGICAL_REASONING] || []).filter((_, idx) => idx % 2 !== 0)),
+        ],
+      },
+      {
+        name: 'Computer Fundamentals (Set B)',
+        category: QuestionCategory.COMPUTER_FUNDAMENTALS,
+        description: 'Set B: Operating Systems, Computer Networks, and Linux internals.',
+        timeLimitMinutes: 20,
+        questionIds: (qMapByCategory[QuestionCategory.COMPUTER_FUNDAMENTALS] || []).filter((_, idx) => idx % 2 !== 0),
+      },
+      {
+        name: 'Programming & Practical Debugging (Set B)',
+        category: QuestionCategory.PROGRAMMING_DEBUGGING,
+        description: 'Set B: Code execution tracing and system troubleshooting.',
+        timeLimitMinutes: 20,
+        questionIds: [
+          ...((qMapByCategory[QuestionCategory.PROGRAMMING_DEBUGGING] || []).filter((_, idx) => idx % 2 !== 0)),
+          ...((qMapByCategory[QuestionCategory.PRACTICAL_PROBLEM_SOLVING] || []).filter((_, idx) => idx % 2 !== 0)),
         ],
       },
     ];
@@ -359,23 +390,17 @@ async function seed() {
           {
             setCode: 'A',
             name: 'Set A',
-            description: 'Recruitment Set A — Standard Question Sequence',
-            sections,
+            description: 'Recruitment Set A — Distinct Question Paper A',
+            sections: setASections,
           },
           {
             setCode: 'B',
             name: 'Set B',
-            description: 'Recruitment Set B — Alternate Balanced Question Sequence',
-            sections: sections.map((s) => ({
-              name: s.name,
-              category: s.category,
-              description: s.description,
-              timeLimitMinutes: s.timeLimitMinutes,
-              questionIds: [...s.questionIds].reverse(),
-            })),
+            description: 'Recruitment Set B — Distinct Question Paper B',
+            sections: setBSections,
           },
         ],
-        sections,
+        sections: setASections,
         integritySettings: {
           maxFocusLossCount: 3,
           flagOnFocusLoss: true,
@@ -400,6 +425,7 @@ async function seed() {
         focusLoss: 0,
         assignedSet: 'A',
         setName: 'Set A',
+        hasAttempted: true,
       },
       {
         name: 'Priya Patel',
@@ -410,6 +436,7 @@ async function seed() {
         focusLoss: 1,
         assignedSet: 'B',
         setName: 'Set B',
+        hasAttempted: true,
       },
       {
         name: 'Rohan Deshmukh',
@@ -420,6 +447,7 @@ async function seed() {
         focusLoss: 4, // Exceeds threshold to show integrity warning flag!
         assignedSet: 'A',
         setName: 'Set A',
+        hasAttempted: true,
       },
       {
         name: 'Sneha Kulkarni',
@@ -430,6 +458,7 @@ async function seed() {
         focusLoss: 0,
         assignedSet: 'B',
         setName: 'Set B',
+        hasAttempted: true,
       },
       {
         name: 'Vikram Joshi',
@@ -440,6 +469,29 @@ async function seed() {
         focusLoss: 2,
         assignedSet: 'A',
         setName: 'Set A',
+        hasAttempted: true,
+      },
+      {
+        name: 'Devansh Verma',
+        rollNumber: 'MCA2026-010',
+        division: 'A',
+        email: 'devansh.v@example.edu',
+        scorePct: 0,
+        focusLoss: 0,
+        assignedSet: 'A',
+        setName: 'Set A',
+        hasAttempted: false,
+      },
+      {
+        name: 'Ananya Sen',
+        rollNumber: 'MCA2026-011',
+        division: 'B',
+        email: 'ananya.s@example.edu',
+        scorePct: 0,
+        focusLoss: 0,
+        assignedSet: 'B',
+        setName: 'Set B',
+        hasAttempted: false,
       },
     ];
 
@@ -452,7 +504,13 @@ async function seed() {
           division: cData.division,
           email: cData.email,
           accessCode: assessmentCode,
+          assignedSet: cData.assignedSet,
+          isAllowed: true,
         });
+      }
+
+      if (!cData.hasAttempted) {
+        continue;
       }
 
       let att = await Attempt.findOne({ candidateId: cand._id, assessmentId: assessment._id });

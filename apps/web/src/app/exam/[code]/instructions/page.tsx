@@ -26,6 +26,7 @@ export default function ExamInstructionsPage() {
   const [candidateName, setCandidateName] = useState('');
   const [candidateRoll, setCandidateRoll] = useState('');
   const [candidateId, setCandidateId] = useState('');
+  const [assignedSet, setAssignedSet] = useState('A');
 
   // Device compatibility checks state
   const [screenCheck, setScreenCheck] = useState(false);
@@ -40,6 +41,7 @@ export default function ExamInstructionsPage() {
     const cid = localStorage.getItem('candidate_id');
     const name = localStorage.getItem('candidate_name');
     const roll = localStorage.getItem('candidate_roll');
+    const set = localStorage.getItem('assigned_set') || localStorage.getItem('preferred_set') || 'A';
 
     if (!cid) {
       router.push(`/exam/${rawCode}`);
@@ -49,6 +51,7 @@ export default function ExamInstructionsPage() {
     setCandidateId(cid);
     setCandidateName(name || 'Candidate');
     setCandidateRoll(roll || '');
+    setAssignedSet(set);
 
     // 1. Screen resolution check
     if (typeof window !== 'undefined') {
@@ -90,7 +93,7 @@ export default function ExamInstructionsPage() {
     setError('');
 
     try {
-      const preferredSet = localStorage.getItem('preferred_set');
+      const preferredSet = localStorage.getItem('assigned_set') || localStorage.getItem('preferred_set') || assignedSet;
       const payload = await apiRequest('/attempts/start', {
         method: 'POST',
         body: JSON.stringify({
@@ -126,9 +129,17 @@ export default function ExamInstructionsPage() {
           <h1 className="text-2xl font-black tracking-tight text-[#06111f]">
             Examination Rules &amp; Environment Verification
           </h1>
-          <p className="text-xs text-slate-600">
-            Candidate: <strong className="text-slate-900">{candidateName}</strong> ({candidateRoll}) • Exam Code: <strong className="text-orange-600 font-mono">{rawCode}</strong>
-          </p>
+          <div className="flex flex-wrap items-center justify-center gap-2 text-xs text-slate-600 pt-1">
+            <span>Candidate: <strong className="text-slate-900">{candidateName}</strong></span>
+            <span>•</span>
+            <span>Roll Number: <strong className="text-slate-900 font-mono">{candidateRoll}</strong></span>
+            <span>•</span>
+            <span>Exam Code: <strong className="text-orange-600 font-mono">{rawCode}</strong></span>
+            <span>•</span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orange-100 text-orange-800 font-mono font-bold text-[11px] border border-orange-200">
+              <Layers className="w-3 h-3 text-orange-600" /> Assigned: SET {assignedSet}
+            </span>
+          </div>
         </div>
 
         {error && (
@@ -145,12 +156,15 @@ export default function ExamInstructionsPage() {
               <Layers className="w-4 h-4" />
             </div>
             <div>
-              <div className="font-bold text-slate-900">Concurrent Question Paper Sets (Set A / Set B)</div>
+              <div className="font-bold text-slate-900">Assigned Question Paper: Set {assignedSet}</div>
               <div className="text-[11px] text-slate-600">
-                You will be automatically allocated either Set A or Set B when starting. Both papers maintain identical syllabus coverage and difficulty standards.
+                Your administrator has allocated Set {assignedSet} according to your designated seating arrangement.
               </div>
             </div>
           </div>
+          <span className="px-3 py-1 rounded-lg bg-orange-500 text-white font-mono font-bold text-xs shrink-0">
+            SET {assignedSet}
+          </span>
         </div>
 
         {/* 1. Device Compatibility Check Card */}
