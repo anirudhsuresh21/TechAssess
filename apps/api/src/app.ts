@@ -33,12 +33,26 @@ app.use(
 
 app.use(
   cors({
-    origin: [
-      config.corsOrigin,
-      'http://localhost:3000',
-      'http://127.0.0.1:3000',
-      'http://localhost:4000',
-    ],
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const allowed = [
+        config.corsOrigin,
+        'http://localhost:3000',
+        'http://127.0.0.1:3000',
+        'http://localhost:4000',
+      ].filter(Boolean);
+
+      if (
+        allowed.includes(origin) ||
+        origin.endsWith('.vercel.app') ||
+        process.env.NODE_ENV !== 'production' ||
+        process.env.VERCEL
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(null, true);
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
