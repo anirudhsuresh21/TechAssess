@@ -8,6 +8,8 @@ export interface IVersionSectionSnapshot {
   description?: string;
   timeLimitMinutes?: number;
   questions: any[]; // Full frozen question documents with options and answer keys
+  hasLanguageTracks?: boolean;
+  languageOptions?: Record<string, any[]>; // Language -> frozen question documents
 }
 
 export interface IAssessmentVersionSnapshot {

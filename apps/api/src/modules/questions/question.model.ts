@@ -26,6 +26,7 @@ export interface IQuestion extends Document {
   topic: string;
   difficulty: QuestionDifficulty;
   type: QuestionType;
+  programmingLanguage?: string;
   options: IQuestionOption[];
   numericalAnswer?: number;
   numericalTolerance: number;
@@ -83,6 +84,12 @@ const QuestionSchema = new Schema<IQuestion>(
       type: String,
       enum: Object.values(QuestionType),
       required: true,
+      index: true,
+    },
+    programmingLanguage: {
+      type: String,
+      enum: ['Java', 'JavaScript', 'Python', 'C', 'C++', 'C#', null],
+      trim: true,
       index: true,
     },
     options: [QuestionOptionSchema],

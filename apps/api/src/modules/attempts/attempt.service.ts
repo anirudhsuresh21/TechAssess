@@ -24,7 +24,12 @@ function shuffleArray<T>(array: T[]): T[] {
   return arr;
 }
 
-export async function startAttempt(accessCode: string, candidateId: string, preferredSet?: string) {
+export async function startAttempt(
+  accessCode: string,
+  candidateId: string,
+  preferredSet?: string,
+  selectedLanguage?: string
+) {
   const normalizedCode = accessCode.trim().toUpperCase();
   const candidate = await Candidate.findById(candidateId);
   if (!candidate) {
@@ -68,6 +73,11 @@ export async function startAttempt(accessCode: string, candidateId: string, pref
       throw new AppError('Examination time has expired. Your attempt has been automatically submitted.', 403);
     }
 
+    if (selectedLanguage && attempt.selectedLanguage !== selectedLanguage) {
+      attempt.selectedLanguage = selectedLanguage;
+      await attempt.save();
+    }
+
     // Candidate is resuming their active attempt!
     return getAttemptPayload(attempt, version);
   }
@@ -91,10 +101,16 @@ export async function startAttempt(accessCode: string, candidateId: string, pref
       ? matchingSet.sections
       : version.snapshotData.sections;
 
+  const chosenLanguage = selectedLanguage || 'Java';
+
   // Build question ordering and option map from active sections
   const allQuestions: any[] = [];
   activeSections.forEach((sec: any) => {
-    allQuestions.push(...sec.questions);
+    allQuestions.push(...(sec.questions || []));
+    if (sec.hasLanguageTracks && sec.languageOptions) {
+      const langQs = sec.languageOptions[chosenLanguage] || [];
+      allQuestions.push(...langQs);
+    }
   });
 
   let orderedQuestionIds = allQuestions.map((q) => q._id.toString());
@@ -128,6 +144,7 @@ export async function startAttempt(accessCode: string, candidateId: string, pref
     totalMarks: version.snapshotData.totalMarks,
     assignedSet: assignedSetCode,
     setName: assignedSetName,
+    selectedLanguage: chosenLanguage,
     randomizedQuestionOrder: orderedQuestionIds,
     randomizedOptionMap,
   });
@@ -242,7 +259,12 @@ export async function submitAttempt(attemptId: string, isAutoExpired = false) {
   }
 
   // Evaluate
-  const scoreResult = evaluateAttemptAnswers(version.snapshotData, answersMap, attempt.assignedSet);
+  const scoreResult = evaluateAttemptAnswers(
+    version.snapshotData,
+    answersMap,
+    attempt.assignedSet,
+    attempt.selectedLanguage
+  );
 
   attempt.status = isAutoExpired ? AttemptStatus.EXPIRED : AttemptStatus.SUBMITTED;
   attempt.submissionTime = submissionTime;
@@ -262,6 +284,7 @@ export async function submitAttempt(attemptId: string, isAutoExpired = false) {
         assessmentId: attempt.assessmentId,
         assignedSet: attempt.assignedSet || 'A',
         setName: attempt.setName || `Set ${attempt.assignedSet || 'A'}`,
+        selectedLanguage: attempt.selectedLanguage,
         totalMarks: scoreResult.totalMarks,
         obtainedMarks: scoreResult.obtainedMarks,
         percentage: scoreResult.percentage,
@@ -353,6 +376,59 @@ export async function recalculateAssessmentRanks(assessmentId: string) {
   }
 }
 
+export async function updateAttemptLanguage(attemptId: string, selectedLanguage: string) {
+  const attempt = await Attempt.findById(attemptId);
+  if (!attempt) {
+    throw new AppError('Attempt not found', 404);
+  }
+
+  if (attempt.status !== AttemptStatus.IN_PROGRESS) {
+    throw new AppError('Cannot change language on completed or expired attempt', 400);
+  }
+
+  const version = await AssessmentVersion.findById(attempt.versionId);
+  if (!version) {
+    throw new AppError('Assessment snapshot not found', 500);
+  }
+
+  attempt.selectedLanguage = selectedLanguage;
+
+  const matchingSet = version.snapshotData.sets?.find((s: any) => s.setCode === (attempt.assignedSet || 'A'));
+  const activeSections =
+    matchingSet?.sections && matchingSet.sections.length > 0
+      ? matchingSet.sections
+      : version.snapshotData.sections;
+
+  const allQuestions: any[] = [];
+  activeSections.forEach((sec: any) => {
+    allQuestions.push(...(sec.questions || []));
+    if (sec.hasLanguageTracks && sec.languageOptions) {
+      const langQs = sec.languageOptions[selectedLanguage] || [];
+      allQuestions.push(...langQs);
+    }
+  });
+
+  let orderedQuestionIds = allQuestions.map((q) => q._id.toString());
+  if (version.snapshotData.randomizeQuestions) {
+    orderedQuestionIds = shuffleArray<string>(orderedQuestionIds);
+  }
+  attempt.randomizedQuestionOrder = orderedQuestionIds;
+
+  if (version.snapshotData.randomizeOptions) {
+    const currentOptionMap = attempt.randomizedOptionMap || {};
+    for (const q of allQuestions) {
+      if (q.options && q.options.length > 0 && !currentOptionMap[q._id.toString()]) {
+        const optionIds: string[] = q.options.map((o: any) => String(o.id));
+        currentOptionMap[q._id.toString()] = shuffleArray<string>(optionIds);
+      }
+    }
+    attempt.randomizedOptionMap = currentOptionMap;
+  }
+
+  await attempt.save();
+  return getAttemptPayload(attempt, version);
+}
+
 async function getAttemptPayload(attempt: IAttempt, version: any): Promise<CandidateAttemptPayload> {
   const matchingSet = version.snapshotData.sets?.find((s: any) => s.setCode === (attempt.assignedSet || 'A'));
   const activeSections =
@@ -360,23 +436,48 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
       ? matchingSet.sections
       : version.snapshotData.sections;
 
-  // Build lookup of all questions from activeSections
+  const chosenLanguage = attempt.selectedLanguage || 'Java';
+
+  // Check if any section has language tracks
+  const hasLanguageTracks = activeSections.some((s: any) => s.hasLanguageTracks);
+  const availableLanguagesSet = new Set<string>();
+
+  // Build lookup of all questions from activeSections (including the chosen language questions)
   const questionsMap = new Map<string, any>();
   activeSections.forEach((sec: any) => {
-    sec.questions.forEach((q: any) => {
+    (sec.questions || []).forEach((q: any) => {
       questionsMap.set(q._id.toString(), q);
     });
+    if (sec.hasLanguageTracks && sec.languageOptions) {
+      Object.keys(sec.languageOptions).forEach((l) => availableLanguagesSet.add(l));
+      const langQs = sec.languageOptions[chosenLanguage] || [];
+      langQs.forEach((q: any) => {
+        questionsMap.set(q._id.toString(), q);
+      });
+    }
   });
 
-  // Use candidate's randomized question order if available
-  const questionOrder =
+  const availableLanguages =
+    availableLanguagesSet.size > 0
+      ? Array.from(availableLanguagesSet)
+      : ['Java', 'JavaScript', 'Python', 'C', 'C++', 'C#'];
+
+  // Candidate's randomized question order
+  let questionOrder =
     attempt.randomizedQuestionOrder && attempt.randomizedQuestionOrder.length > 0
-      ? attempt.randomizedQuestionOrder
+      ? attempt.randomizedQuestionOrder.filter((qId) => questionsMap.has(qId))
       : Array.from(questionsMap.keys());
+
+  // Ensure all questions in questionsMap are included
+  for (const qId of questionsMap.keys()) {
+    if (!questionOrder.includes(qId)) {
+      questionOrder.push(qId);
+    }
+  }
 
   // Sanitize questions: NEVER expose isCorrect, explanation, hidden testcases or answer keys
   const sanitizedQuestions: SanitizedCandidateQuestion[] = [];
-  questionOrder.forEach((qId, idx) => {
+  questionOrder.forEach((qId) => {
     const rawQ = questionsMap.get(qId);
     if (!rawQ) return;
 
@@ -401,6 +502,7 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
       topic: rawQ.topic,
       difficulty: rawQ.difficulty,
       type: rawQ.type,
+      programmingLanguage: rawQ.programmingLanguage,
       options,
       marks: rawQ.marks,
       negativeMarks: rawQ.negativeMarks,
@@ -423,17 +525,26 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
   }
 
   // Sections with question indices
-  const sections = activeSections.map((sec: any) => {
-    const secQIds = new Set(sec.questions.map((q: any) => q._id.toString()));
+  const sections = activeSections.map((sec: any, secIdx: number) => {
+    const secQIds = new Set<string>();
+    (sec.questions || []).forEach((q: any) => secQIds.add(q._id.toString()));
+    if (sec.hasLanguageTracks && sec.languageOptions) {
+      const langQs = sec.languageOptions[chosenLanguage] || [];
+      langQs.forEach((q: any) => secQIds.add(q._id.toString()));
+    }
+
     const indices: number[] = [];
     sanitizedQuestions.forEach((q, idx) => {
       if (secQIds.has(q._id)) {
         indices.push(idx);
+        q.sectionIndex = secIdx;
       }
     });
+
     return {
       name: sec.name,
       category: sec.category,
+      hasLanguageTracks: !!sec.hasLanguageTracks,
       questionIndices: indices,
     };
   });
@@ -450,6 +561,9 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
     codingEnabled: version.snapshotData.codingEnabled,
     assignedSet: attempt.assignedSet || 'A',
     setName: attempt.setName || `Set ${attempt.assignedSet || 'A'}`,
+    selectedLanguage: chosenLanguage,
+    availableLanguages,
+    hasLanguageTracks,
     sections,
     questions: sanitizedQuestions,
     savedAnswers,

@@ -20,8 +20,10 @@ import {
   AlertCircle,
   HelpCircle,
   ExternalLink,
+  Code2,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
+import { SUPPORTED_PROGRAMMING_LANGUAGES } from '@techassess/shared';
 
 export default function ViewQuestionPaperPage() {
   const params = useParams();
@@ -30,6 +32,7 @@ export default function ViewQuestionPaperPage() {
 
   const [activeSet, setActiveSet] = useState<'A' | 'B' | 'BASE'>('A');
   const [showAnswerKey, setShowAnswerKey] = useState(true);
+  const [selectedPaperLanguage, setSelectedPaperLanguage] = useState<string>('Java');
 
   // Fetch Assessment details with populated questions
   const { data: assessment, isLoading, error } = useQuery({
@@ -82,9 +85,14 @@ export default function ViewQuestionPaperPage() {
   // Calculate question and marks counts for the active view
   let totalActiveQuestions = 0;
   let totalActiveMarks = 0;
+  const anyHasLanguageTracks = activeSections.some((s: any) => s.hasLanguageTracks);
 
   activeSections.forEach((sec: any) => {
-    const qList = sec.questionIds || [];
+    const commonQs = sec.questionIds || [];
+    const langQs = sec.hasLanguageTracks
+      ? (sec.languageOptionsPopulated?.[selectedPaperLanguage] || sec.languageOptions?.[selectedPaperLanguage] || [])
+      : [];
+    const qList = [...commonQs, ...langQs];
     totalActiveQuestions += qList.length;
     qList.forEach((q: any) => {
       if (typeof q === 'object' && q.marks) {
@@ -204,6 +212,46 @@ export default function ViewQuestionPaperPage() {
         </div>
       )}
 
+      {/* Multi-Language Track Selector (if sections have language tracks) */}
+      {anyHasLanguageTracks && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-purple-50/70 border border-purple-200 p-3.5 rounded-2xl shadow-sm print:hidden">
+          <div className="flex items-center gap-2">
+            <Code2 className="w-4 h-4 text-purple-600 shrink-0" />
+            <span className="text-xs font-bold text-purple-950">
+              Viewing Programming Language Track:
+            </span>
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => {
+              const isSelected = selectedPaperLanguage === lang;
+              const icons: Record<string, string> = {
+                Java: '☕',
+                JavaScript: '🟨',
+                Python: '🐍',
+                C: '🔷',
+                'C++': '⚡',
+                'C#': '🟣',
+              };
+              return (
+                <button
+                  key={lang}
+                  type="button"
+                  onClick={() => setSelectedPaperLanguage(lang)}
+                  className={`px-3 py-1 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm ${
+                    isSelected
+                      ? 'bg-purple-600 text-white'
+                      : 'bg-white text-purple-800 border border-purple-200 hover:bg-purple-100'
+                  }`}
+                >
+                  <span>{icons[lang] || '💻'}</span>
+                  <span>{lang}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* Question Paper Header Sheet */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 sm:p-8 shadow-sm space-y-6 print:border-none print:shadow-none print:p-0">
         {/* Printable Institution Header */}
@@ -224,11 +272,18 @@ export default function ViewQuestionPaperPage() {
             <h1 className="text-xl sm:text-2xl font-black text-slate-900">
               {assessment.title}
             </h1>
-            {hasSets && (
-              <div className="inline-block mt-2 px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-mono font-bold tracking-wider">
-                QUESTION PAPER {activeSet === 'A' ? 'SET A' : activeSet === 'B' ? 'SET B' : 'STANDARD'}
-              </div>
-            )}
+            <div className="flex items-center justify-center gap-2 mt-2">
+              {hasSets && (
+                <div className="inline-block px-3 py-1 rounded-full bg-slate-900 text-white text-xs font-mono font-bold tracking-wider">
+                  QUESTION PAPER {activeSet === 'A' ? 'SET A' : activeSet === 'B' ? 'SET B' : 'STANDARD'}
+                </div>
+              )}
+              {anyHasLanguageTracks && (
+                <div className="inline-block px-3 py-1 rounded-full bg-purple-600 text-white text-xs font-mono font-bold tracking-wider">
+                  TRACK: {selectedPaperLanguage.toUpperCase()}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Exam Specs Grid */}
@@ -268,10 +323,19 @@ export default function ViewQuestionPaperPage() {
         ) : (
           <div className="space-y-8">
             {activeSections.map((sec: any, secIdx: number) => {
-              const qList = sec.questionIds || [];
+              const commonQs = sec.questionIds || [];
+              const langQs = sec.hasLanguageTracks
+                ? (sec.languageOptionsPopulated?.[selectedPaperLanguage] || sec.languageOptions?.[selectedPaperLanguage] || [])
+                : [];
+              const qList = [...commonQs, ...langQs];
+
               let secQuestionNumberStart = 1;
               for (let i = 0; i < secIdx; i++) {
-                secQuestionNumberStart += activeSections[i]?.questionIds?.length || 0;
+                const prevCommon = activeSections[i]?.questionIds || [];
+                const prevLang = activeSections[i]?.hasLanguageTracks
+                  ? (activeSections[i]?.languageOptionsPopulated?.[selectedPaperLanguage] || activeSections[i]?.languageOptions?.[selectedPaperLanguage] || [])
+                  : [];
+                secQuestionNumberStart += prevCommon.length + prevLang.length;
               }
 
               return (
@@ -284,6 +348,11 @@ export default function ViewQuestionPaperPage() {
                         <span className="text-[10px] font-mono font-semibold px-2 py-0.5 rounded bg-white border border-slate-200 text-slate-700">
                           {sec.category?.replace(/_/g, ' ')}
                         </span>
+                        {sec.hasLanguageTracks && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                            Multi-Language Track: {selectedPaperLanguage}
+                          </span>
+                        )}
                       </h3>
                       {sec.description && (
                         <p className="text-[11px] text-slate-600 mt-0.5">{sec.description}</p>
@@ -299,6 +368,7 @@ export default function ViewQuestionPaperPage() {
                     {qList.map((q: any, qIdx: number) => {
                       const isPopulated = typeof q === 'object' && q !== null;
                       const globalQNum = secQuestionNumberStart + qIdx;
+                      const isLangQuestion = sec.hasLanguageTracks && qIdx >= commonQs.length;
 
                       if (!isPopulated) {
                         return (
@@ -325,6 +395,17 @@ export default function ViewQuestionPaperPage() {
                             </div>
 
                             <div className="flex items-center gap-1.5 shrink-0 text-[10px] font-mono">
+                              {isLangQuestion ? (
+                                <span className="px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 font-bold">
+                                  {selectedPaperLanguage} Track
+                                </span>
+                              ) : (
+                                sec.hasLanguageTracks && (
+                                  <span className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 font-bold">
+                                    Common Programming
+                                  </span>
+                                )
+                              )}
                               <span className="px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
                                 {q.type}
                               </span>

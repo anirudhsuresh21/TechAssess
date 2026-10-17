@@ -36,6 +36,24 @@ export enum QuestionType {
   CODE_WRITING = 'CODE_WRITING',
 }
 
+export enum ProgrammingLanguage {
+  JAVA = 'Java',
+  JAVASCRIPT = 'JavaScript',
+  PYTHON = 'Python',
+  C = 'C',
+  CPP = 'C++',
+  CSHARP = 'C#',
+}
+
+export const SUPPORTED_PROGRAMMING_LANGUAGES = [
+  'Java',
+  'JavaScript',
+  'Python',
+  'C',
+  'C++',
+  'C#',
+] as const;
+
 export enum AttemptStatus {
   IN_PROGRESS = 'IN_PROGRESS',
   SUBMITTED = 'SUBMITTED',

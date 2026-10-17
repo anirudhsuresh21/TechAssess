@@ -14,8 +14,10 @@ import {
   ArrowRight,
   Info,
   Layers,
+  Code2,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
+import { SUPPORTED_PROGRAMMING_LANGUAGES } from '@techassess/shared';
 
 export default function ExamInstructionsPage() {
   const params = useParams();
@@ -27,6 +29,7 @@ export default function ExamInstructionsPage() {
   const [candidateRoll, setCandidateRoll] = useState('');
   const [candidateId, setCandidateId] = useState('');
   const [assignedSet, setAssignedSet] = useState('A');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('Java');
 
   // Device compatibility checks state
   const [screenCheck, setScreenCheck] = useState(false);
@@ -100,6 +103,7 @@ export default function ExamInstructionsPage() {
           accessCode: rawCode,
           candidateId,
           preferredSet: preferredSet || undefined,
+          selectedLanguage,
         }),
       });
 
@@ -232,10 +236,68 @@ export default function ExamInstructionsPage() {
           </div>
         </div>
 
-        {/* 2. Rules and Integrity Regulations Card */}
+        {/* 2. Programming Language Track Selection */}
+        <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-xs font-bold uppercase tracking-wider text-orange-600 flex items-center gap-2">
+                <Code2 className="w-4 h-4 text-orange-600" />
+                2. Select Your Programming Language Track
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                The Practical Programming section contains questions in your chosen language. Select the programming language you will attempt:
+              </p>
+            </div>
+            <span className="text-[11px] font-mono font-bold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+              Selected: {selectedLanguage}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-1">
+            {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => {
+              const isSelected = selectedLanguage === lang;
+              const icons: Record<string, string> = {
+                Java: '☕',
+                JavaScript: '🟨',
+                Python: '🐍',
+                C: '🔷',
+                'C++': '⚡',
+                'C#': '🟣',
+              };
+
+              return (
+                <div
+                  key={lang}
+                  onClick={() => setSelectedLanguage(lang)}
+                  className={`p-3.5 rounded-xl border text-xs cursor-pointer transition flex items-center justify-between ${
+                    isSelected
+                      ? 'bg-purple-50 border-purple-500 text-purple-950 font-bold shadow-sm'
+                      : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50/50'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <span className="text-base">{icons[lang] || '💻'}</span>
+                    <span>{lang}</span>
+                  </div>
+                  <div
+                    className={`w-4 h-4 rounded-full flex items-center justify-center text-[10px] ${
+                      isSelected
+                        ? 'bg-purple-600 text-white font-bold'
+                        : 'border border-slate-300'
+                    }`}
+                  >
+                    {isSelected ? '✓' : ''}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Rules and Integrity Regulations Card */}
         <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-4 shadow-sm">
           <h2 className="text-xs font-bold uppercase tracking-wider text-orange-600">
-            2. Examination Rules &amp; Anti-Cheating Protocol
+            3. Examination Rules &amp; Anti-Cheating Protocol
           </h2>
 
           <ul className="space-y-2.5 text-xs text-slate-700">

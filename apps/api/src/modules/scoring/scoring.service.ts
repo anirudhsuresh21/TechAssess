@@ -28,7 +28,8 @@ export function evaluateAttemptAnswers(
     numericalAnswer?: number;
     codeSubmission?: string;
   }>,
-  assignedSet?: string
+  assignedSet?: string,
+  selectedLanguage?: string
 ): EvaluatedScoreResult {
   let totalAssessmentMarks = 0;
   let totalObtainedMarks = 0;
@@ -51,7 +52,15 @@ export function evaluateAttemptAnswers(
     let sectionAnswered = 0;
     let sectionCorrect = 0;
 
-    for (const question of section.questions) {
+    // Combine common questions and language-specific questions if language tracks enabled
+    let sectionQuestions = [...(section.questions || [])];
+    if (section.hasLanguageTracks && section.languageOptions) {
+      const langKey = selectedLanguage || 'Java';
+      const langQuestions = section.languageOptions[langKey] || [];
+      sectionQuestions.push(...langQuestions);
+    }
+
+    for (const question of sectionQuestions) {
       const qId = question._id.toString();
       const maxMarks = question.marks || 1;
       const negativeMarks =

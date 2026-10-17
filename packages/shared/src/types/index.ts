@@ -27,6 +27,7 @@ import {
   AdminBulkAddCandidatesSchema,
   AdminAssignSetSchema,
   StartAttemptSchema,
+  SelectLanguageSchema,
   SaveAnswerSchema,
   IntegrityEventSchema,
   ShortlistCandidateSchema,
@@ -50,6 +51,7 @@ export type AdminAddCandidateInput = z.infer<typeof AdminAddCandidateSchema>;
 export type AdminBulkAddCandidatesInput = z.infer<typeof AdminBulkAddCandidatesSchema>;
 export type AdminAssignSetInput = z.infer<typeof AdminAssignSetSchema>;
 export type StartAttemptInput = z.infer<typeof StartAttemptSchema>;
+export type SelectLanguageInput = z.infer<typeof SelectLanguageSchema>;
 export type SaveAnswerInput = z.infer<typeof SaveAnswerSchema>;
 export type IntegrityEventInput = z.infer<typeof IntegrityEventSchema>;
 export type ShortlistCandidateInput = z.infer<typeof ShortlistCandidateSchema>;
@@ -65,6 +67,7 @@ export interface SanitizedCandidateQuestion {
   topic: string;
   difficulty: QuestionDifficulty;
   type: QuestionType;
+  programmingLanguage?: string;
   options?: Array<{
     id: string;
     text: string;
@@ -86,9 +89,14 @@ export interface CandidateAttemptPayload {
   codingEnabled: boolean;
   assignedSet?: string; // 'A' | 'B'
   setName?: string;     // 'Set A' | 'Set B'
+  selectedLanguage?: string;
+  availableLanguages?: string[];
+  hasLanguageTracks?: boolean;
   sections: Array<{
     name: string;
     category: QuestionCategory;
+    hasLanguageTracks?: boolean;
+    languageOptions?: Record<string, string[]>;
     questionIndices: number[];
   }>;
   questions: SanitizedCandidateQuestion[];

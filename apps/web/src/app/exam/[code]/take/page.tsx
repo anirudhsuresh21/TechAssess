@@ -15,12 +15,15 @@ import {
   RefreshCw,
   Layers,
   User,
+  Code2,
+  X,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import {
   CandidateAttemptPayload,
   QuestionType,
   IntegrityEventType,
+  SUPPORTED_PROGRAMMING_LANGUAGES,
 } from '@techassess/shared';
 import { formatSeconds } from '@/lib/utils';
 
@@ -34,6 +37,9 @@ export default function LiveExaminationPage() {
   const [attemptData, setAttemptData] = useState<CandidateAttemptPayload | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [candidateInfo, setCandidateInfo] = useState<{ name: string; roll: string } | null>(null);
+
+  // Language track change modal state
+  const [showLanguageModal, setShowLanguageModal] = useState(false);
 
   useEffect(() => {
     const name = localStorage.getItem('candidate_name');
@@ -354,6 +360,24 @@ export default function LiveExaminationPage() {
     }
   };
 
+  // Switch candidate programming language track dynamically
+  const handleSwitchLanguage = async (newLang: string) => {
+    if (!attemptId) return;
+    try {
+      const updatedPayload: CandidateAttemptPayload = await apiRequest(`/attempts/${attemptId}/language`, {
+        method: 'PATCH',
+        body: JSON.stringify({ selectedLanguage: newLang }),
+      });
+      setAttemptData(updatedPayload);
+      if (currentQuestionIndex >= updatedPayload.questions.length) {
+        setCurrentQuestionIndex(0);
+      }
+      setShowLanguageModal(false);
+    } catch (err: any) {
+      console.error('Failed to change language:', err);
+    }
+  };
+
   if (!attemptData || !currentQuestion) {
     return (
       <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center text-slate-500 text-xs">
@@ -404,6 +428,19 @@ export default function LiveExaminationPage() {
                 <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                 <span>{attemptData.setName ? attemptData.setName.toUpperCase() : `SET ${attemptData.assignedSet || 'A'}`}</span>
               </div>
+              {/* Programming Language Track Badge & Switcher */}
+              {attemptData.selectedLanguage && (
+                <button
+                  type="button"
+                  onClick={() => setShowLanguageModal(true)}
+                  title="Click to change programming track"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-mono font-bold text-xs shadow-sm transition"
+                >
+                  <Code2 className="w-3 h-3 text-purple-600" />
+                  <span>Track: {attemptData.selectedLanguage}</span>
+                  <span className="text-[9px] underline text-purple-500 font-normal">Change</span>
+                </button>
+              )}
             </div>
             <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
               <span>Code: {rawCode}</span>
@@ -514,6 +551,17 @@ export default function LiveExaminationPage() {
                 <span className="text-[10px] font-mono text-slate-600 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                   {currentQuestion.type}
                 </span>
+                {currentQuestion.programmingLanguage ? (
+                  <span className="text-[10px] font-mono font-bold text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200">
+                    {currentQuestion.programmingLanguage} Track
+                  </span>
+                ) : (
+                  attemptData.hasLanguageTracks && currentQuestion.category === 'PROGRAMMING_DEBUGGING' && (
+                    <span className="text-[10px] font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                      Common Programming
+                    </span>
+                  )
+                )}
                 <span className="text-[10px] font-mono font-bold text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
                   {attemptData.setName || `Set ${attemptData.assignedSet || 'A'}`}
                 </span>
@@ -833,6 +881,76 @@ export default function LiveExaminationPage() {
                 className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-orange-600 to-amber-500 hover:from-orange-500 hover:to-amber-500 text-white text-xs font-bold shadow-md shadow-orange-600/25 transition"
               >
                 {isSubmitting ? 'Submitting...' : 'Yes, Submit Final Answers'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Switch Programming Language Modal */}
+      {showLanguageModal && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <Code2 className="w-5 h-5 text-purple-600" />
+                <h3 className="text-sm font-bold text-slate-900">
+                  Change Programming Language Track
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowLanguageModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-600">
+              Select the programming language track you want to attempt. Questions for your selected language will immediately replace the previous language track:
+            </p>
+
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => {
+                const isSelected = attemptData.selectedLanguage === lang;
+                const icons: Record<string, string> = {
+                  Java: '☕',
+                  JavaScript: '🟨',
+                  Python: '🐍',
+                  C: '🔷',
+                  'C++': '⚡',
+                  'C#': '🟣',
+                };
+
+                return (
+                  <button
+                    key={lang}
+                    type="button"
+                    onClick={() => handleSwitchLanguage(lang)}
+                    className={`p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${
+                      isSelected
+                        ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm'
+                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span>{icons[lang] || '💻'}</span>
+                      <span>{lang}</span>
+                    </span>
+                    {isSelected && <span className="text-purple-600 font-bold">✓</span>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowLanguageModal(false)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
+              >
+                Close
               </button>
             </div>
           </div>

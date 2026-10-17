@@ -14,6 +14,7 @@ interface QuestionFilterParams {
   difficulty?: QuestionDifficulty;
   type?: QuestionType;
   topic?: string;
+  programmingLanguage?: string;
   search?: string;
   isArchived?: boolean;
   page?: number;
@@ -76,6 +77,7 @@ export async function getQuestions(filter: QuestionFilterParams) {
   if (filter.category) query.category = filter.category;
   if (filter.difficulty) query.difficulty = filter.difficulty;
   if (filter.type) query.type = filter.type;
+  if (filter.programmingLanguage) query.programmingLanguage = filter.programmingLanguage;
   if (filter.topic) query.topic = new RegExp(filter.topic, 'i');
   if (filter.isArchived !== undefined) {
     query.isArchived = filter.isArchived;

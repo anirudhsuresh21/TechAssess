@@ -29,6 +29,7 @@ import {
   QuestionCategory,
   QuestionDifficulty,
   QuestionType,
+  SUPPORTED_PROGRAMMING_LANGUAGES,
 } from '@techassess/shared';
 
 export default function QuestionBankPage() {
@@ -37,6 +38,7 @@ export default function QuestionBankPage() {
   const [categoryFilter, setCategoryFilter] = useState('');
   const [difficultyFilter, setDifficultyFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
+  const [languageFilter, setLanguageFilter] = useState('');
   const [limit, setLimit] = useState(100);
   const [actionMessage, setActionMessage] = useState('');
 
@@ -55,6 +57,7 @@ export default function QuestionBankPage() {
   const [editNegativeMarks, setEditNegativeMarks] = useState(0.25);
   const [editExplanation, setEditExplanation] = useState('');
   const [editCodeSnippet, setEditCodeSnippet] = useState('');
+  const [editProgrammingLanguage, setEditProgrammingLanguage] = useState('');
   const [editOptions, setEditOptions] = useState<any[]>([]);
   const [editNumericalAnswer, setEditNumericalAnswer] = useState<number | undefined>(undefined);
   const [editNumericalTolerance, setEditNumericalTolerance] = useState<number>(0);
@@ -67,6 +70,7 @@ export default function QuestionBankPage() {
   const [newTopic, setNewTopic] = useState('General');
   const [newDifficulty, setNewDifficulty] = useState<string>(QuestionDifficulty.EASY);
   const [newType, setNewType] = useState<string>(QuestionType.SINGLE_CHOICE);
+  const [newProgrammingLanguage, setNewProgrammingLanguage] = useState('');
   const [newMarks, setNewMarks] = useState(1);
   const [newNegativeMarks, setNewNegativeMarks] = useState(0.25);
   const [newExplanation, setNewExplanation] = useState('');
@@ -79,12 +83,13 @@ export default function QuestionBankPage() {
 
   // Query: Fetch Questions
   const { data: questions, isLoading } = useQuery({
-    queryKey: ['questions', categoryFilter, difficultyFilter, typeFilter, searchTerm, limit],
+    queryKey: ['questions', categoryFilter, difficultyFilter, typeFilter, languageFilter, searchTerm, limit],
     queryFn: () => {
       const params = new URLSearchParams();
       if (categoryFilter) params.set('category', categoryFilter);
       if (difficultyFilter) params.set('difficulty', difficultyFilter);
       if (typeFilter) params.set('type', typeFilter);
+      if (languageFilter) params.set('programmingLanguage', languageFilter);
       if (searchTerm) params.set('search', searchTerm);
       params.set('limit', String(limit));
       return apiRequest(`/questions?${params.toString()}`);
@@ -156,6 +161,7 @@ export default function QuestionBankPage() {
     setEditTopic(q.topic || '');
     setEditDifficulty(q.difficulty || QuestionDifficulty.EASY);
     setEditType(q.type || QuestionType.SINGLE_CHOICE);
+    setEditProgrammingLanguage(q.programmingLanguage || '');
     setEditMarks(q.marks || 1);
     setEditNegativeMarks(q.negativeMarks || 0);
     setEditExplanation(q.explanation || '');
@@ -186,6 +192,7 @@ export default function QuestionBankPage() {
       topic: editTopic,
       difficulty: editDifficulty,
       type: editType,
+      programmingLanguage: editProgrammingLanguage || null,
       marks: Number(editMarks),
       negativeMarks: Number(editNegativeMarks),
       explanation: editExplanation || undefined,
@@ -216,6 +223,7 @@ export default function QuestionBankPage() {
       topic: newTopic,
       difficulty: newDifficulty,
       type: newType,
+      programmingLanguage: newProgrammingLanguage || undefined,
       marks: Number(newMarks),
       negativeMarks: Number(newNegativeMarks),
       explanation: newExplanation || undefined,
@@ -266,7 +274,7 @@ export default function QuestionBankPage() {
 
       {/* Filter and Limit Toolbar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-3">
           {/* Search Input */}
           <div className="relative lg:col-span-2">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
@@ -290,6 +298,22 @@ export default function QuestionBankPage() {
               {Object.values(QuestionCategory).map((c) => (
                 <option key={c} value={c}>
                   {c.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Programming Language Filter */}
+          <div>
+            <select
+              value={languageFilter}
+              onChange={(e) => setLanguageFilter(e.target.value)}
+              className="w-full bg-slate-50 border border-slate-300 text-slate-700 text-xs rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:bg-white"
+            >
+              <option value="">All Languages</option>
+              {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => (
+                <option key={lang} value={lang}>
+                  {lang}
                 </option>
               ))}
             </select>
@@ -378,9 +402,16 @@ export default function QuestionBankPage() {
                     >
                       {q.difficulty}
                     </span>
-                    <span className="font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded text-[9px] border border-slate-200 font-semibold truncate max-w-[90px]">
-                      {q.type?.replace('_', ' ')}
-                    </span>
+                    <div className="flex items-center gap-1">
+                      {q.programmingLanguage && (
+                        <span className="font-semibold px-1.5 py-0.5 rounded text-[9px] bg-purple-50 text-purple-700 border border-purple-200">
+                          {q.programmingLanguage}
+                        </span>
+                      )}
+                      <span className="font-mono text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded text-[9px] border border-slate-200 font-semibold truncate max-w-[90px]">
+                        {q.type?.replace('_', ' ')}
+                      </span>
+                    </div>
                   </div>
 
                   {/* Title & Statement snippet */}
@@ -470,6 +501,11 @@ export default function QuestionBankPage() {
                   <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200 font-semibold">
                     {selectedQuestion.category?.replace(/_/g, ' ')}
                   </span>
+                  {selectedQuestion.programmingLanguage && (
+                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200">
+                      Track: {selectedQuestion.programmingLanguage}
+                    </span>
+                  )}
                   <span className="text-[10px] font-mono text-slate-500">
                     Topic: {selectedQuestion.topic || 'General'}
                   </span>
@@ -722,6 +758,24 @@ export default function QuestionBankPage() {
                     <option value={QuestionType.MULTIPLE_CHOICE}>Multiple Choice MSQ</option>
                     <option value={QuestionType.NUMERICAL}>Numerical</option>
                     <option value={QuestionType.CODE_OUTPUT}>Code Output</option>
+                  </select>
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Programming Language Track (Optional)
+                  </label>
+                  <select
+                    value={editProgrammingLanguage}
+                    onChange={(e) => setEditProgrammingLanguage(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-slate-900 focus:bg-white"
+                  >
+                    <option value="">None / General (Not language-specific)</option>
+                    {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => (
+                      <option key={lang} value={lang}>
+                        {lang} Track
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -1013,6 +1067,24 @@ export default function QuestionBankPage() {
                     onChange={(e) => setNewNegativeMarks(parseFloat(e.target.value) || 0)}
                     className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-slate-900 focus:bg-white"
                   />
+                </div>
+
+                <div className="col-span-2">
+                  <label className="block text-slate-700 font-semibold mb-1">
+                    Programming Language Track (Optional)
+                  </label>
+                  <select
+                    value={newProgrammingLanguage}
+                    onChange={(e) => setNewProgrammingLanguage(e.target.value)}
+                    className="w-full bg-slate-50 border border-slate-300 rounded-xl p-2 text-slate-900 focus:bg-white"
+                  >
+                    <option value="">None / General (Not language-specific)</option>
+                    {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => (
+                      <option key={lang} value={lang}>
+                        {lang} Track
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
 
