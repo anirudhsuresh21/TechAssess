@@ -21,6 +21,7 @@ import {
   HelpCircle,
   ExternalLink,
   Code2,
+  Pencil,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { SUPPORTED_PROGRAMMING_LANGUAGES } from '@techassess/shared';
@@ -139,6 +140,15 @@ export default function ViewQuestionPaperPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2.5">
+          {/* Edit Question Paper Button */}
+          <Link
+            href={`/admin/assessments/${assessmentId}/edit`}
+            className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 text-xs font-bold transition shadow-sm"
+          >
+            <Pencil className="w-3.5 h-3.5" />
+            <span>Edit Question Paper</span>
+          </Link>
+
           {/* Toggle Answer Key Button */}
           <button
             type="button"
@@ -358,8 +368,17 @@ export default function ViewQuestionPaperPage() {
                         <p className="text-[11px] text-slate-600 mt-0.5">{sec.description}</p>
                       )}
                     </div>
-                    <div className="text-xs font-mono font-bold text-slate-600">
-                      {qList.length} Questions {sec.timeLimitMinutes ? `• ${sec.timeLimitMinutes} Mins` : ''}
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs font-mono font-bold text-slate-600">
+                        {qList.length} Questions {sec.timeLimitMinutes ? `• ${sec.timeLimitMinutes} Mins` : ''}
+                      </div>
+                      <Link
+                        href={`/admin/assessments/${assessmentId}/edit`}
+                        className="inline-flex items-center gap-1 text-[11px] font-semibold text-orange-600 hover:text-orange-800 bg-white hover:bg-orange-50 px-2 py-1 rounded-lg border border-slate-200 transition print:hidden shadow-xs"
+                      >
+                        <Pencil className="w-3 h-3" />
+                        <span>Edit</span>
+                      </Link>
                     </div>
                   </div>
 

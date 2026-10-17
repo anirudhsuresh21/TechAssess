@@ -138,7 +138,17 @@ export async function updateAssessment(id: string, data: any, userId?: string, i
     }
   }
 
+  if (data.sections) {
+    assessment.sections = data.sections;
+    assessment.markModified('sections');
+  }
+  if (data.sets) {
+    assessment.sets = data.sets;
+    assessment.markModified('sets');
+  }
   Object.assign(assessment, data);
+  if (data.sections) assessment.markModified('sections');
+  if (data.sets) assessment.markModified('sets');
   await assessment.save();
 
   if (userId) {
@@ -176,8 +186,9 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
     totalQuestionsCount += section.questionIds.length;
 
     // Fetch full question data
+    const rawIds = section.questionIds.map((q: any) => q?._id || q);
     const questionDocs = await Question.find({
-      _id: { $in: section.questionIds },
+      _id: { $in: rawIds },
       isArchived: false,
     }).lean();
 
@@ -221,8 +232,9 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
     for (const set of assessment.sets) {
       const setSections = [];
       for (const section of (set.sections || [])) {
+        const setRawIds = (section.questionIds || []).map((q: any) => q?._id || q);
         const qDocs = await Question.find({
-          _id: { $in: section.questionIds },
+          _id: { $in: setRawIds },
           isArchived: false,
         }).lean();
 

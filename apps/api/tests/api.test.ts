@@ -158,6 +158,59 @@ Bad Row,Short,INVALID_CAT,None,EASY,SINGLE_CHOICE,"A|B",A,1`;
       expect(res.body.data.insertedCount).toBe(1);
       expect(res.body.data.importedCount).toBe(1);
     });
+
+    it('should import questions with programming language column and defaultLanguage option', async () => {
+      const langCsv = `title,text,category,topic,difficulty,type,programmingLanguage,options,correctOptions,marks
+Java Stream Map,What does map do in Java Streams?,PROGRAMMING_DEBUGGING,Streams,MEDIUM,SINGLE_CHOICE,Java,"Filters|Transforms|Reduces",Transforms,2
+Python Dict Get,What does dict.get(key) return if not found?,PROGRAMMING_DEBUGGING,Dicts,EASY,SINGLE_CHOICE,,"Error|None|False",None,1`;
+
+      const res = await request(app)
+        .post('/api/v1/questions/import/commit')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ csvContent: langCsv, defaultLanguage: 'Python' });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.insertedCount).toBe(2);
+      expect(res.body.data.inserted[0].programmingLanguage).toBe('Java');
+      expect(res.body.data.inserted[1].programmingLanguage).toBe('Python');
+    });
+
+    it('should permanently delete a question using DELETE /api/v1/questions/:id', async () => {
+      // Create a temporary question to delete
+      const createRes = await request(app)
+        .post('/api/v1/questions')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          title: 'Question To Delete Permanently',
+          text: 'This question will be deleted from the database.',
+          category: QuestionCategory.COMPUTER_FUNDAMENTALS,
+          topic: 'Temporary',
+          type: QuestionType.SINGLE_CHOICE,
+          options: [
+            { id: 'opt_1', text: 'Option A', isCorrect: true },
+            { id: 'opt_2', text: 'Option B', isCorrect: false },
+          ],
+        });
+
+      expect(createRes.status).toBe(201);
+      const qId = createRes.body.data._id;
+
+      // Delete question
+      const deleteRes = await request(app)
+        .delete(`/api/v1/questions/${qId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(deleteRes.status).toBe(200);
+      expect(deleteRes.body.success).toBe(true);
+      expect(deleteRes.body.data.id).toBe(qId);
+
+      // Verify question is completely gone (404)
+      const fetchRes = await request(app)
+        .get(`/api/v1/questions/${qId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(fetchRes.status).toBe(404);
+    });
   });
 
   describe('3. Assessment Builder, Sections & Versioning', () => {

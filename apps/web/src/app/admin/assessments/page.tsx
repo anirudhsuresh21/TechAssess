@@ -17,6 +17,7 @@ import {
   Layers,
   Users,
   FileText,
+  Pencil,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 
@@ -185,6 +186,14 @@ export default function AssessmentsListPage() {
                   >
                     <FileText className="w-3.5 h-3.5 text-slate-600" />
                     <span>View Paper</span>
+                  </Link>
+
+                  <Link
+                    href={`/admin/assessments/${exam._id}/edit`}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-50 text-orange-700 hover:bg-orange-100 border border-orange-200 text-xs font-bold transition shadow-sm"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>Edit Paper</span>
                   </Link>
 
                   <Link
