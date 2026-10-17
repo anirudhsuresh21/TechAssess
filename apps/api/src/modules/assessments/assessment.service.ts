@@ -75,11 +75,37 @@ export async function getAssessments(filter: {
 export async function getAssessmentById(id: string) {
   const assessment = await Assessment.findById(id)
     .populate('sections.questionIds')
+    .populate('sets.sections.questionIds')
     .populate('createdBy', 'name email')
     .lean();
   if (!assessment) {
     throw new AppError('Assessment not found', 404);
   }
+
+  const populateLanguageOptions = async (section: any) => {
+    if (section.hasLanguageTracks && section.languageOptions) {
+      const populated: Record<string, any[]> = {};
+      for (const [lang, qIds] of Object.entries(section.languageOptions)) {
+        if (Array.isArray(qIds) && qIds.length > 0) {
+          const docs = await Question.find({ _id: { $in: qIds } }).lean();
+          populated[lang] = docs;
+        } else {
+          populated[lang] = [];
+        }
+      }
+      section.languageOptionsPopulated = populated;
+    }
+  };
+
+  for (const s of ((assessment.sections || []) as any[])) {
+    await populateLanguageOptions(s);
+  }
+  for (const set of ((assessment.sets || []) as any[])) {
+    for (const s of (set.sections || [])) {
+      await populateLanguageOptions(s);
+    }
+  }
+
   return assessment;
 }
 
@@ -159,12 +185,27 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
       throw new AppError(`Some questions in section "${section.name}" are archived or missing`, 400);
     }
 
+    const langSnapshotMap: Record<string, any[]> = {};
+    if (section.hasLanguageTracks && section.languageOptions) {
+      for (const [lang, qIds] of Object.entries(section.languageOptions as Record<string, any>)) {
+        if (Array.isArray(qIds) && qIds.length > 0) {
+          const langDocs = await Question.find({
+            _id: { $in: qIds },
+            isArchived: false,
+          }).lean();
+          langSnapshotMap[lang] = langDocs;
+        }
+      }
+    }
+
     versionSections.push({
       name: section.name,
       category: section.category,
       description: section.description,
       timeLimitMinutes: section.timeLimitMinutes,
       questions: questionDocs,
+      hasLanguageTracks: !!section.hasLanguageTracks,
+      languageOptions: langSnapshotMap,
     });
   }
 
@@ -184,12 +225,25 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
           _id: { $in: section.questionIds },
           isArchived: false,
         }).lean();
+
+        const setLangMap: Record<string, any[]> = {};
+        if (section.hasLanguageTracks && section.languageOptions) {
+          for (const [lang, qIds] of Object.entries(section.languageOptions as Record<string, any>)) {
+            if (Array.isArray(qIds) && qIds.length > 0) {
+              const langDocs = await Question.find({ _id: { $in: qIds }, isArchived: false }).lean();
+              setLangMap[lang] = langDocs;
+            }
+          }
+        }
+
         setSections.push({
           name: section.name,
           category: section.category,
           description: section.description,
           timeLimitMinutes: section.timeLimitMinutes,
           questions: qDocs,
+          hasLanguageTracks: !!section.hasLanguageTracks,
+          languageOptions: setLangMap,
         });
       }
       snapshotSets.push({
@@ -211,13 +265,23 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
       setCode: 'B',
       name: 'Set B',
       description: 'Alternate Question Paper (Set B)',
-      sections: versionSections.map(s => ({
-        name: s.name,
-        category: s.category,
-        description: s.description,
-        timeLimitMinutes: s.timeLimitMinutes,
-        questions: [...s.questions].reverse(),
-      })),
+      sections: versionSections.map(s => {
+        const reversedLangOptions: Record<string, any[]> = {};
+        if (s.languageOptions) {
+          for (const [lang, list] of Object.entries(s.languageOptions)) {
+            reversedLangOptions[lang] = [...list].reverse();
+          }
+        }
+        return {
+          name: s.name,
+          category: s.category,
+          description: s.description,
+          timeLimitMinutes: s.timeLimitMinutes,
+          questions: [...s.questions].reverse(),
+          hasLanguageTracks: s.hasLanguageTracks,
+          languageOptions: reversedLangOptions,
+        };
+      }),
     });
   }
 

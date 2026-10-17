@@ -232,6 +232,21 @@ Bad Row,Short,INVALID_CAT,None,EASY,SINGLE_CHOICE,"A|B",A,1`;
       expect(res.body.data.candidate.rollNumber).toBe('MCA2026-999');
       candidateId = res.body.data.candidate.id;
     });
+
+    it('should authenticate candidate using Roll Number as login ID and password', async () => {
+      const res = await request(app)
+        .post('/api/v1/candidate/login')
+        .send({
+          accessCode: examCode,
+          rollNumber: 'MCA2026-999',
+          password: 'MCA2026-999',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.candidate.name).toBe('Aniket Gupta');
+      expect(res.body.data.candidate.rollNumber).toBe('MCA2026-999');
+    });
   });
 
   describe('5. Examination Session, Autosave, Sanitization & Anti-Cheating', () => {
@@ -498,6 +513,87 @@ Bad Row,Short,INVALID_CAT,None,EASY,SINGLE_CHOICE,"A|B",A,1`;
         .send({ questionId: testQuestionId, selectedOptionIds: ['opt_1'] });
       expect(saveAfterSubmit.status).toBe(400);
       expect(saveAfterSubmit.body.error).toContain('finalized');
+    });
+  });
+
+  describe('9. Student Roster, Seating Arrangement & Dynamic Set Switching', () => {
+    let preRegisteredCandId: string;
+
+    it('should allow admin to pre-register students with roll number, name, and set', async () => {
+      const res = await request(app)
+        .post(`/api/v1/candidate/assessment/${examCode}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          rollNumber: 'MCA2026-501',
+          name: 'Pooja Verma',
+          division: 'A',
+          assignedSet: 'B',
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.data.rollNumber).toBe('MCA2026-501');
+      expect(res.body.data.name).toBe('Pooja Verma');
+      expect(res.body.data.assignedSet).toBe('B');
+      preRegisteredCandId = res.body.data._id || res.body.data.id;
+    });
+
+    it('should allow student to log in using Roll Number as username and password', async () => {
+      const res = await request(app)
+        .post('/api/v1/candidate/login')
+        .send({
+          accessCode: examCode,
+          rollNumber: 'MCA2026-501',
+          password: 'MCA2026-501',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.candidate.name).toBe('Pooja Verma');
+      expect(res.body.data.candidate.rollNumber).toBe('MCA2026-501');
+      expect(res.body.data.candidate.assignedSet).toBe('B');
+    });
+
+    it('should allow admin to change candidate set 10-15 minutes prior to exam', async () => {
+      const setRes = await request(app)
+        .patch(`/api/v1/candidate/${preRegisteredCandId}/set`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ assignedSet: 'A' });
+
+      expect(setRes.status).toBe(200);
+      expect(setRes.body.data.assignedSet).toBe('A');
+
+      // Verify the student sees updated Set A on subsequent login
+      const verifyLogin = await request(app)
+        .post('/api/v1/candidate/login')
+        .send({
+          accessCode: examCode,
+          rollNumber: 'MCA2026-501',
+          password: 'MCA2026-501',
+        });
+      expect(verifyLogin.body.data.candidate.assignedSet).toBe('A');
+    });
+
+    it('should allow admin to auto-assign alternating sets according to seating arrangement', async () => {
+      const res = await request(app)
+        .post(`/api/v1/candidate/assessment/${examCode}/auto-assign-sets`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.assignedCount).toBeGreaterThanOrEqual(2);
+      expect(res.body.data.setACount).toBeGreaterThanOrEqual(1);
+      expect(res.body.data.setBCount).toBeGreaterThanOrEqual(1);
+    });
+
+    it('should retrieve student roster with assigned sets and attempt statuses', async () => {
+      const res = await request(app)
+        .get(`/api/v1/candidate/assessment/${examCode}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.length).toBeGreaterThanOrEqual(2);
+      const studentRolls = res.body.data.map((c: any) => c.rollNumber);
+      expect(studentRolls).toContain('MCA2026-999');
+      expect(studentRolls).toContain('MCA2026-501');
     });
   });
 });

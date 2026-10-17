@@ -53,6 +53,7 @@ export const CreateQuestionSchema = z.object({
   explanation: z.string().optional(),
   estimatedMinutes: z.number().min(1).default(2),
   tags: z.array(z.string()).default([]),
+  programmingLanguage: z.string().optional(),
 });
 
 export const UpdateQuestionSchema = CreateQuestionSchema.partial();
@@ -62,7 +63,9 @@ export const AssessmentSectionSchema = z.object({
   category: z.nativeEnum(QuestionCategory),
   description: z.string().optional(),
   timeLimitMinutes: z.number().optional(),
-  questionIds: z.array(z.string()).default([]),
+  questionIds: z.array(z.string()).default([]), // Common questions
+  hasLanguageTracks: z.boolean().default(false),
+  languageOptions: z.record(z.array(z.string())).optional().default({}),
 });
 
 export const AssessmentSetSchema = z.object({
@@ -112,17 +115,46 @@ export const UpdateAssessmentSchema = CreateAssessmentSchema.partial();
 export const CandidateRegisterSchema = z.object({
   name: z.string().min(2, 'Full name is required'),
   rollNumber: z.string().min(1, 'Roll number is required').toUpperCase(),
-  division: z.string().min(1, 'Division is required').toUpperCase(),
-  email: z.string().email('Valid email is required'),
+  division: z.string().optional().default('A'),
+  email: z.string().optional().default(''),
   phone: z.string().optional(),
   accessCode: z.string().min(4, 'Access code is required').toUpperCase(),
   preferredSet: z.string().optional(),
+  assignedSet: z.enum(['A', 'B']).optional().default('A'),
+});
+
+export const CandidateLoginSchema = z.object({
+  accessCode: z.string().min(4, 'Access code is required').toUpperCase(),
+  rollNumber: z.string().min(1, 'Roll number is required').toUpperCase(),
+  password: z.string().optional(),
+});
+
+export const AdminAddCandidateSchema = z.object({
+  name: z.string().min(2, 'Full student name is required'),
+  rollNumber: z.string().min(1, 'Roll number is required').toUpperCase(),
+  division: z.string().optional().default('A'),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  assignedSet: z.enum(['A', 'B']).optional().default('A'),
+});
+
+export const AdminBulkAddCandidatesSchema = z.object({
+  candidates: z.array(AdminAddCandidateSchema),
+});
+
+export const AdminAssignSetSchema = z.object({
+  assignedSet: z.enum(['A', 'B']),
 });
 
 export const StartAttemptSchema = z.object({
   accessCode: z.string().min(4),
   candidateId: z.string().min(1),
   preferredSet: z.string().optional(),
+  selectedLanguage: z.string().optional(),
+});
+
+export const SelectLanguageSchema = z.object({
+  selectedLanguage: z.string().min(1, 'Programming language is required'),
 });
 
 export const SaveAnswerSchema = z.object({

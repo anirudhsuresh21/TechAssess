@@ -28,12 +28,13 @@ export async function createQuestionHandler(req: Request, res: Response, next: N
 
 export async function getQuestionsHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const { category, difficulty, type, topic, search, page, limit, isArchived } = req.query;
+    const { category, difficulty, type, topic, programmingLanguage, search, page, limit, isArchived } = req.query;
     const result = await getQuestions({
       category: category as any,
       difficulty: difficulty as any,
       type: type as any,
       topic: topic as string,
+      programmingLanguage: programmingLanguage as string,
       search: search as string,
       isArchived: isArchived !== undefined ? isArchived === 'true' : undefined,
       page: page ? parseInt(page as string, 10) : 1,

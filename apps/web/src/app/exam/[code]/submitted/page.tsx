@@ -15,6 +15,7 @@ import {
   Layers,
   AlertTriangle,
   ShieldAlert,
+  User,
 } from 'lucide-react';
 import { formatSeconds } from '@/lib/utils';
 
@@ -22,6 +23,15 @@ export default function ExamSubmittedPage() {
   const searchParams = useSearchParams();
   const attemptId = searchParams.get('attemptId');
   const [resultData, setResultData] = useState<any>(null);
+  const [candidateInfo, setCandidateInfo] = useState<{ name: string; roll: string } | null>(null);
+
+  useEffect(() => {
+    const name = localStorage.getItem('candidate_name');
+    const roll = localStorage.getItem('candidate_roll');
+    if (name || roll) {
+      setCandidateInfo({ name: name || 'Student', roll: roll || '' });
+    }
+  }, []);
 
   const attempt = resultData?.attempt;
   const result = resultData?.result;
@@ -119,6 +129,17 @@ export default function ExamSubmittedPage() {
               </span>
             )}
           </div>
+
+          {candidateInfo && (
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <span className="text-slate-500 font-medium flex items-center gap-1.5">
+                <User className="w-3.5 h-3.5 text-orange-600" /> Candidate:
+              </span>
+              <span className="text-slate-900 font-bold">
+                {candidateInfo.name} <span className="font-mono text-slate-500 font-normal">({candidateInfo.roll})</span>
+              </span>
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <span className="text-slate-500 font-medium">Question Paper Set:</span>

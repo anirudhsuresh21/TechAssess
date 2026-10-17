@@ -5,12 +5,13 @@ import {
   saveCandidateAnswer,
   submitAttempt,
   recordAttemptIntegrityEvent,
+  updateAttemptLanguage,
 } from './attempt.service';
 
 export async function startAttemptHandler(req: Request, res: Response, next: NextFunction) {
   try {
-    const { accessCode, candidateId, preferredSet } = req.body;
-    const payload = await startAttempt(accessCode, candidateId, preferredSet);
+    const { accessCode, candidateId, preferredSet, selectedLanguage } = req.body;
+    const payload = await startAttempt(accessCode, candidateId, preferredSet, selectedLanguage);
     res.status(201).json({
       success: true,
       data: payload,
@@ -80,6 +81,19 @@ export async function submitAttemptHandler(req: Request, res: Response, next: Ne
     res.json({
       success: true,
       data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAttemptLanguageHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const { selectedLanguage } = req.body;
+    const payload = await updateAttemptLanguage(req.params.id, selectedLanguage);
+    res.json({
+      success: true,
+      data: payload,
     });
   } catch (error) {
     next(error);

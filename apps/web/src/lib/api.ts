@@ -1,6 +1,17 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL
-  ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
-  : '/api/v1';
+function getApiBase(): string {
+  if (typeof window !== 'undefined') {
+    const hostname = window.location.hostname;
+    const isLocalhost = hostname === 'localhost' || hostname === '127.0.0.1';
+    const envUrl = process.env.NEXT_PUBLIC_API_URL;
+    // If deployed on Vercel or cloud domain, do not attempt to contact localhost
+    if (!isLocalhost && envUrl && (envUrl.includes('localhost') || envUrl.includes('127.0.0.1'))) {
+      return '/api/v1';
+    }
+  }
+  return process.env.NEXT_PUBLIC_API_URL
+    ? `${process.env.NEXT_PUBLIC_API_URL}/api/v1`
+    : '/api/v1';
+}
 
 export class ApiError extends Error {
   statusCode: number;
@@ -51,13 +62,30 @@ export async function apiRequest<T = any>(
     headers.set('Authorization', `Bearer ${token}`);
   }
 
-  const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+  const base = getApiBase();
+  const url = endpoint.startsWith('http') ? endpoint : `${base}${endpoint}`;
 
-  const response = await fetch(url, {
-    ...options,
-    headers,
-    credentials: 'include',
-  });
+  // 15 second client timeout to prevent indefinite hanging
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let response: Response;
+  try {
+    response = await fetch(url, {
+      ...options,
+      signal: options.signal || controller.signal,
+      headers,
+      credentials: 'include',
+    });
+  } catch (fetchErr: any) {
+    clearTimeout(timeoutId);
+    if (fetchErr.name === 'AbortError') {
+      throw new ApiError('Request timed out (15s). The database or server took too long to respond.', 504);
+    }
+    throw new ApiError(`Network error: ${fetchErr.message || 'Unable to connect to server'}`, 0);
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('text/csv')) {

@@ -7,6 +7,8 @@ export interface IAssessmentSection {
   description?: string;
   timeLimitMinutes?: number;
   questionIds: mongoose.Types.ObjectId[];
+  hasLanguageTracks?: boolean;
+  languageOptions?: Record<string, mongoose.Types.ObjectId[]>;
 }
 
 export interface IAssessmentSet {
@@ -61,6 +63,8 @@ const AssessmentSectionSchema = new Schema<IAssessmentSection>(
     description: { type: String },
     timeLimitMinutes: { type: Number },
     questionIds: [{ type: Schema.Types.ObjectId, ref: 'Question' }],
+    hasLanguageTracks: { type: Boolean, default: false },
+    languageOptions: { type: Schema.Types.Mixed, default: {} },
   },
   { _id: false }
 );
