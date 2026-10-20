@@ -79,6 +79,7 @@ export interface SanitizedCandidateQuestion {
 
 export interface CandidateAttemptPayload {
   attemptId: string;
+  status?: AttemptStatus;
   assessmentTitle: string;
   assessmentDescription?: string;
   durationMinutes: number;

@@ -7,7 +7,9 @@ dotenv.config({ path: path.resolve(process.cwd(), '../../.env') });
 export const config = {
   env: process.env.NODE_ENV || 'development',
   port: parseInt(process.env.PORT || '4000', 10),
-  mongodbUri: process.env.MONGODB_URI || '',
+  mongodbUri:
+    process.env.MONGODB_URI ||
+    'mongodb+srv://TechClub:XrE5ikce00o785nP@cluster0.gmshaxj.mongodb.net/techassess?retryWrites=true&w=majority',
   jwtSecret: process.env.JWT_SECRET || 'techassess-super-secret-jwt-key-2026-xyz-abc',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:3000',

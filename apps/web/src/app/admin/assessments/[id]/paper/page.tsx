@@ -82,17 +82,39 @@ export default function ViewQuestionPaperPage() {
     }
   }
 
+  // Deduplicate questions for display in the published question paper
+  const getSectionQuestions = (sec: any) => {
+    const commonQs = sec.questionIds || [];
+    const langQs = sec.hasLanguageTracks
+      ? (sec.languageOptionsPopulated?.[selectedPaperLanguage] || sec.languageOptions?.[selectedPaperLanguage] || [])
+      : [];
+    const seenIds = new Set<string>();
+    const seenSigs = new Set<string>();
+    const qList: any[] = [];
+
+    [...commonQs, ...langQs].forEach((q: any) => {
+      const qId = typeof q === 'object' && q !== null ? q._id?.toString() || q.id?.toString() : String(q);
+      const sig = typeof q === 'object' && q !== null
+        ? ((q.title || '').trim() + ':::' + (q.text || '').trim()).toLowerCase()
+        : qId;
+
+      if (!seenIds.has(qId) && !seenSigs.has(sig)) {
+        seenIds.add(qId);
+        seenSigs.add(sig);
+        qList.push(q);
+      }
+    });
+
+    return qList;
+  };
+
   // Calculate question and marks counts for the active view
   let totalActiveQuestions = 0;
   let totalActiveMarks = 0;
   const anyHasLanguageTracks = activeSections.some((s: any) => s.hasLanguageTracks);
 
   activeSections.forEach((sec: any) => {
-    const commonQs = sec.questionIds || [];
-    const langQs = sec.hasLanguageTracks
-      ? (sec.languageOptionsPopulated?.[selectedPaperLanguage] || sec.languageOptions?.[selectedPaperLanguage] || [])
-      : [];
-    const qList = [...commonQs, ...langQs];
+    const qList = getSectionQuestions(sec);
     totalActiveQuestions += qList.length;
     qList.forEach((q: any) => {
       if (typeof q === 'object' && q.marks) {
@@ -323,19 +345,12 @@ export default function ViewQuestionPaperPage() {
         ) : (
           <div className="space-y-8">
             {activeSections.map((sec: any, secIdx: number) => {
-              const commonQs = sec.questionIds || [];
-              const langQs = sec.hasLanguageTracks
-                ? (sec.languageOptionsPopulated?.[selectedPaperLanguage] || sec.languageOptions?.[selectedPaperLanguage] || [])
-                : [];
-              const qList = [...commonQs, ...langQs];
+              const qList = getSectionQuestions(sec);
 
               let secQuestionNumberStart = 1;
               for (let i = 0; i < secIdx; i++) {
-                const prevCommon = activeSections[i]?.questionIds || [];
-                const prevLang = activeSections[i]?.hasLanguageTracks
-                  ? (activeSections[i]?.languageOptionsPopulated?.[selectedPaperLanguage] || activeSections[i]?.languageOptions?.[selectedPaperLanguage] || [])
-                  : [];
-                secQuestionNumberStart += prevCommon.length + prevLang.length;
+                const prevList = getSectionQuestions(activeSections[i]);
+                secQuestionNumberStart += prevList.length;
               }
 
               return (
@@ -368,7 +383,7 @@ export default function ViewQuestionPaperPage() {
                     {qList.map((q: any, qIdx: number) => {
                       const isPopulated = typeof q === 'object' && q !== null;
                       const globalQNum = secQuestionNumberStart + qIdx;
-                      const isLangQuestion = sec.hasLanguageTracks && qIdx >= commonQs.length;
+                      const isLangQuestion = sec.hasLanguageTracks && (Boolean(q.programmingLanguage) || qIdx >= (sec.questionIds || []).length);
 
                       if (!isPopulated) {
                         return (

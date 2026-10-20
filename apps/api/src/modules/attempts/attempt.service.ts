@@ -73,10 +73,7 @@ export async function startAttempt(
       throw new AppError('Examination time has expired. Your attempt has been automatically submitted.', 403);
     }
 
-    if (selectedLanguage && attempt.selectedLanguage !== selectedLanguage) {
-      attempt.selectedLanguage = selectedLanguage;
-      await attempt.save();
-    }
+    // Programming language track is locked once the attempt starts; preserve original attempt.selectedLanguage
 
     // Candidate is resuming their active attempt!
     return getAttemptPayload(attempt, version);
@@ -103,13 +100,42 @@ export async function startAttempt(
 
   const chosenLanguage = selectedLanguage || 'Java';
 
-  // Build question ordering and option map from active sections
+  // Build question ordering and option map from active sections with strict deduplication
   const allQuestions: any[] = [];
+  const seenIds = new Set<string>();
+  const seenSignatures = new Set<string>();
+
+  const getQSig = (q: any) =>
+    (
+      (q.title || '').trim() +
+      ':::' +
+      (q.text || '').trim() +
+      ':::' +
+      (q.codeSnippet || '').trim()
+    ).toLowerCase();
+
   activeSections.forEach((sec: any) => {
-    allQuestions.push(...(sec.questions || []));
+    (sec.questions || []).forEach((q: any) => {
+      const qId = q._id.toString();
+      const sig = getQSig(q);
+      if (!seenIds.has(qId) && !seenSignatures.has(sig)) {
+        seenIds.add(qId);
+        seenSignatures.add(sig);
+        allQuestions.push(q);
+      }
+    });
+
     if (sec.hasLanguageTracks && sec.languageOptions) {
       const langQs = sec.languageOptions[chosenLanguage] || [];
-      allQuestions.push(...langQs);
+      langQs.forEach((q: any) => {
+        const qId = q._id.toString();
+        const sig = getQSig(q);
+        if (!seenIds.has(qId) && !seenSignatures.has(sig)) {
+          seenIds.add(qId);
+          seenSignatures.add(sig);
+          allQuestions.push(q);
+        }
+      });
     }
   });
 
@@ -376,57 +402,13 @@ export async function recalculateAssessmentRanks(assessmentId: string) {
   }
 }
 
-export async function updateAttemptLanguage(attemptId: string, selectedLanguage: string) {
+export async function updateAttemptLanguage(attemptId: string, _selectedLanguage: string) {
   const attempt = await Attempt.findById(attemptId);
   if (!attempt) {
     throw new AppError('Attempt not found', 404);
   }
 
-  if (attempt.status !== AttemptStatus.IN_PROGRESS) {
-    throw new AppError('Cannot change language on completed or expired attempt', 400);
-  }
-
-  const version = await AssessmentVersion.findById(attempt.versionId);
-  if (!version) {
-    throw new AppError('Assessment snapshot not found', 500);
-  }
-
-  attempt.selectedLanguage = selectedLanguage;
-
-  const matchingSet = version.snapshotData.sets?.find((s: any) => s.setCode === (attempt.assignedSet || 'A'));
-  const activeSections =
-    matchingSet?.sections && matchingSet.sections.length > 0
-      ? matchingSet.sections
-      : version.snapshotData.sections;
-
-  const allQuestions: any[] = [];
-  activeSections.forEach((sec: any) => {
-    allQuestions.push(...(sec.questions || []));
-    if (sec.hasLanguageTracks && sec.languageOptions) {
-      const langQs = sec.languageOptions[selectedLanguage] || [];
-      allQuestions.push(...langQs);
-    }
-  });
-
-  let orderedQuestionIds = allQuestions.map((q) => q._id.toString());
-  if (version.snapshotData.randomizeQuestions) {
-    orderedQuestionIds = shuffleArray<string>(orderedQuestionIds);
-  }
-  attempt.randomizedQuestionOrder = orderedQuestionIds;
-
-  if (version.snapshotData.randomizeOptions) {
-    const currentOptionMap = attempt.randomizedOptionMap || {};
-    for (const q of allQuestions) {
-      if (q.options && q.options.length > 0 && !currentOptionMap[q._id.toString()]) {
-        const optionIds: string[] = q.options.map((o: any) => String(o.id));
-        currentOptionMap[q._id.toString()] = shuffleArray<string>(optionIds);
-      }
-    }
-    attempt.randomizedOptionMap = currentOptionMap;
-  }
-
-  await attempt.save();
-  return getAttemptPayload(attempt, version);
+  throw new AppError('Changing programming language track is not permitted once the examination has started.', 403);
 }
 
 async function getAttemptPayload(attempt: IAttempt, version: any): Promise<CandidateAttemptPayload> {
@@ -442,17 +424,39 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
   const hasLanguageTracks = activeSections.some((s: any) => s.hasLanguageTracks);
   const availableLanguagesSet = new Set<string>();
 
-  // Build lookup of all questions from activeSections (including the chosen language questions)
+  // Build lookup of all questions from activeSections (including chosen language) with strict deduplication
   const questionsMap = new Map<string, any>();
+  const seenPayloadSignatures = new Set<string>();
+
+  const getPayloadSig = (q: any) =>
+    (
+      (q.title || '').trim() +
+      ':::' +
+      (q.text || '').trim() +
+      ':::' +
+      (q.codeSnippet || '').trim()
+    ).toLowerCase();
+
   activeSections.forEach((sec: any) => {
     (sec.questions || []).forEach((q: any) => {
-      questionsMap.set(q._id.toString(), q);
+      const qId = q._id.toString();
+      const sig = getPayloadSig(q);
+      if (!questionsMap.has(qId) && !seenPayloadSignatures.has(sig)) {
+        questionsMap.set(qId, q);
+        seenPayloadSignatures.add(sig);
+      }
     });
+
     if (sec.hasLanguageTracks && sec.languageOptions) {
       Object.keys(sec.languageOptions).forEach((l) => availableLanguagesSet.add(l));
       const langQs = sec.languageOptions[chosenLanguage] || [];
       langQs.forEach((q: any) => {
-        questionsMap.set(q._id.toString(), q);
+        const qId = q._id.toString();
+        const sig = getPayloadSig(q);
+        if (!questionsMap.has(qId) && !seenPayloadSignatures.has(sig)) {
+          questionsMap.set(qId, q);
+          seenPayloadSignatures.add(sig);
+        }
       });
     }
   });
@@ -462,18 +466,30 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
       ? Array.from(availableLanguagesSet)
       : ['Java', 'JavaScript', 'Python', 'C', 'C++', 'C#'];
 
-  // Candidate's randomized question order
-  let questionOrder =
+  // Candidate's randomized question order with strict uniqueness
+  const uniqueOrderedIds: string[] = [];
+  const orderedSeen = new Set<string>();
+
+  const candidateList =
     attempt.randomizedQuestionOrder && attempt.randomizedQuestionOrder.length > 0
-      ? attempt.randomizedQuestionOrder.filter((qId) => questionsMap.has(qId))
+      ? attempt.randomizedQuestionOrder
       : Array.from(questionsMap.keys());
 
-  // Ensure all questions in questionsMap are included
-  for (const qId of questionsMap.keys()) {
-    if (!questionOrder.includes(qId)) {
-      questionOrder.push(qId);
+  for (const qId of candidateList) {
+    if (questionsMap.has(qId) && !orderedSeen.has(qId)) {
+      orderedSeen.add(qId);
+      uniqueOrderedIds.push(qId);
     }
   }
+
+  for (const qId of questionsMap.keys()) {
+    if (!orderedSeen.has(qId)) {
+      orderedSeen.add(qId);
+      uniqueOrderedIds.push(qId);
+    }
+  }
+
+  let questionOrder = uniqueOrderedIds;
 
   // Sanitize questions: NEVER expose isCorrect, explanation, hidden testcases or answer keys
   const sanitizedQuestions: SanitizedCandidateQuestion[] = [];
@@ -551,6 +567,7 @@ async function getAttemptPayload(attempt: IAttempt, version: any): Promise<Candi
 
   return {
     attemptId: attempt._id.toString(),
+    status: attempt.status,
     assessmentTitle: version.snapshotData.title,
     assessmentDescription: version.snapshotData.description,
     durationMinutes: version.snapshotData.durationMinutes,

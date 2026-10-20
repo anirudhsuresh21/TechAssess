@@ -170,11 +170,22 @@ export default function CreateAssessmentPage() {
         if (i !== sectionIdx) return sec;
         if (track === 'common' || !sec.hasLanguageTracks) {
           const exists = sec.questionIds.includes(qId);
+          const nextQuestionIds = exists
+            ? sec.questionIds.filter((id) => id !== qId)
+            : [...sec.questionIds, qId];
+
+          // If adding to common, ensure it is purged from all language tracks in this section
+          const nextLangOptions = { ...(sec.languageOptions || {}) };
+          if (!exists) {
+            for (const lang of Object.keys(nextLangOptions)) {
+              nextLangOptions[lang] = (nextLangOptions[lang] || []).filter((id) => id !== qId);
+            }
+          }
+
           return {
             ...sec,
-            questionIds: exists
-              ? sec.questionIds.filter((id) => id !== qId)
-              : [...sec.questionIds, qId],
+            questionIds: nextQuestionIds,
+            languageOptions: nextLangOptions,
           };
         } else {
           const currentTrackQs = sec.languageOptions?.[track] || [];
@@ -182,12 +193,23 @@ export default function CreateAssessmentPage() {
           const updatedTrackQs = exists
             ? currentTrackQs.filter((id) => id !== qId)
             : [...currentTrackQs, qId];
+
+          // If adding to a track, purge from common questionIds and other tracks to prevent duplicates
+          let nextQuestionIds = sec.questionIds;
+          const nextLangOptions = { ...(sec.languageOptions || {}), [track]: updatedTrackQs };
+          if (!exists) {
+            nextQuestionIds = sec.questionIds.filter((id) => id !== qId);
+            for (const lang of Object.keys(nextLangOptions)) {
+              if (lang !== track) {
+                nextLangOptions[lang] = (nextLangOptions[lang] || []).filter((id) => id !== qId);
+              }
+            }
+          }
+
           return {
             ...sec,
-            languageOptions: {
-              ...(sec.languageOptions || {}),
-              [track]: updatedTrackQs,
-            },
+            questionIds: nextQuestionIds,
+            languageOptions: nextLangOptions,
           };
         }
       })
@@ -247,11 +269,22 @@ export default function CreateAssessmentPage() {
         if (i !== sectionIdx) return sec;
         if (track === 'common' || !sec.hasLanguageTracks) {
           const exists = sec.questionIds.includes(qId);
+          const nextQuestionIds = exists
+            ? sec.questionIds.filter((id) => id !== qId)
+            : [...sec.questionIds, qId];
+
+          // If adding to common, ensure it is purged from all language tracks in this section
+          const nextLangOptions = { ...(sec.languageOptions || {}) };
+          if (!exists) {
+            for (const lang of Object.keys(nextLangOptions)) {
+              nextLangOptions[lang] = (nextLangOptions[lang] || []).filter((id) => id !== qId);
+            }
+          }
+
           return {
             ...sec,
-            questionIds: exists
-              ? sec.questionIds.filter((id) => id !== qId)
-              : [...sec.questionIds, qId],
+            questionIds: nextQuestionIds,
+            languageOptions: nextLangOptions,
           };
         } else {
           const currentTrackQs = sec.languageOptions?.[track] || [];
@@ -259,12 +292,23 @@ export default function CreateAssessmentPage() {
           const updatedTrackQs = exists
             ? currentTrackQs.filter((id) => id !== qId)
             : [...currentTrackQs, qId];
+
+          // If adding to a track, purge from common questionIds and other tracks to prevent duplicates
+          let nextQuestionIds = sec.questionIds;
+          const nextLangOptions = { ...(sec.languageOptions || {}), [track]: updatedTrackQs };
+          if (!exists) {
+            nextQuestionIds = sec.questionIds.filter((id) => id !== qId);
+            for (const lang of Object.keys(nextLangOptions)) {
+              if (lang !== track) {
+                nextLangOptions[lang] = (nextLangOptions[lang] || []).filter((id) => id !== qId);
+              }
+            }
+          }
+
           return {
             ...sec,
-            languageOptions: {
-              ...(sec.languageOptions || {}),
-              [track]: updatedTrackQs,
-            },
+            questionIds: nextQuestionIds,
+            languageOptions: nextLangOptions,
           };
         }
       })
@@ -391,6 +435,25 @@ export default function CreateAssessmentPage() {
     try {
       const finalSetB = setBSections.length > 0 ? setBSections : sections;
 
+      const sanitizeSectionItem = (s: SectionFormItem) => {
+        const uniqueQIds = Array.from(new Set(s.questionIds || []));
+        const cleanLangOptions: Record<string, string[]> = {};
+        if (s.hasLanguageTracks && s.languageOptions) {
+          for (const [lang, ids] of Object.entries(s.languageOptions)) {
+            cleanLangOptions[lang] = Array.from(new Set(ids || [])).filter((id) => !uniqueQIds.includes(id));
+          }
+        }
+        return {
+          name: s.name,
+          category: s.category,
+          description: s.description,
+          timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
+          questionIds: uniqueQIds,
+          hasLanguageTracks: Boolean(s.hasLanguageTracks),
+          languageOptions: cleanLangOptions,
+        };
+      };
+
       // Build Sets A and B payloads (with genuinely distinct question papers)
       const setsPayload = setsEnabled
         ? [
@@ -398,29 +461,13 @@ export default function CreateAssessmentPage() {
               setCode: 'A',
               name: 'Set A',
               description: 'Primary Recruitment Question Paper (Set A)',
-              sections: sections.map((s) => ({
-                name: s.name,
-                category: s.category,
-                description: s.description,
-                timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
-                questionIds: s.questionIds,
-                hasLanguageTracks: Boolean(s.hasLanguageTracks),
-                languageOptions: s.hasLanguageTracks ? s.languageOptions || {} : {},
-              })),
+              sections: sections.map(sanitizeSectionItem),
             },
             {
               setCode: 'B',
               name: 'Set B',
               description: 'Alternate Distinct Recruitment Question Paper (Set B)',
-              sections: finalSetB.map((s) => ({
-                name: s.name,
-                category: s.category,
-                description: s.description,
-                timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
-                questionIds: s.questionIds,
-                hasLanguageTracks: Boolean(s.hasLanguageTracks),
-                languageOptions: s.hasLanguageTracks ? s.languageOptions || {} : {},
-              })),
+              sections: finalSetB.map(sanitizeSectionItem),
             },
           ]
         : [];
@@ -441,15 +488,7 @@ export default function CreateAssessmentPage() {
         allowReviewAnswers,
         setsEnabled,
         sets: setsPayload,
-        sections: sections.map((s) => ({
-          name: s.name,
-          category: s.category,
-          description: s.description,
-          timeLimitMinutes: s.timeLimitMinutes ? Number(s.timeLimitMinutes) : undefined,
-          questionIds: s.questionIds,
-          hasLanguageTracks: Boolean(s.hasLanguageTracks),
-          languageOptions: s.hasLanguageTracks ? s.languageOptions || {} : {},
-        })),
+        sections: sections.map(sanitizeSectionItem),
         integritySettings: {
           maxFocusLossCount: Number(maxFocusLossCount),
           flagOnFocusLoss: true,

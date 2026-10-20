@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useSearchParams } from 'next/navigation';
+import { useParams, useSearchParams } from 'next/navigation';
 import confetti from 'canvas-confetti';
 import {
   CheckCircle2,
@@ -20,18 +20,36 @@ import {
 import { formatSeconds } from '@/lib/utils';
 
 export default function ExamSubmittedPage() {
+  const params = useParams();
   const searchParams = useSearchParams();
   const attemptId = searchParams.get('attemptId');
+  const rawCode = (params?.code as string)?.toUpperCase();
   const [resultData, setResultData] = useState<any>(null);
   const [candidateInfo, setCandidateInfo] = useState<{ name: string; roll: string } | null>(null);
 
   useEffect(() => {
+    // Clear active attempt so entry pages won't redirect back to take
+    if (rawCode) {
+      localStorage.removeItem(`active_attempt_${rawCode}`);
+    }
+
+    // Push barrier into history so pressing back won't return to the exam
+    window.history.pushState(null, '', window.location.href);
+    const handlePopState = () => {
+      window.history.pushState(null, '', window.location.href);
+    };
+    window.addEventListener('popstate', handlePopState);
+
     const name = localStorage.getItem('candidate_name');
     const roll = localStorage.getItem('candidate_roll');
     if (name || roll) {
       setCandidateInfo({ name: name || 'Student', roll: roll || '' });
     }
-  }, []);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+    };
+  }, [rawCode]);
 
   const attempt = resultData?.attempt;
   const result = resultData?.result;

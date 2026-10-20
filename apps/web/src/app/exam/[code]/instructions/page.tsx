@@ -15,6 +15,7 @@ import {
   Info,
   Layers,
   Code2,
+  Lock,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
 import { SUPPORTED_PROGRAMMING_LANGUAGES } from '@techassess/shared';
@@ -40,6 +41,13 @@ export default function ExamInstructionsPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // If examination is already started, prevent going back to instructions
+    const activeAttempt = localStorage.getItem(`active_attempt_${rawCode}`);
+    if (activeAttempt) {
+      router.replace(`/exam/${rawCode}/take?attemptId=${activeAttempt}`);
+      return;
+    }
+
     // Read candidate details
     const cid = localStorage.getItem('candidate_id');
     const name = localStorage.getItem('candidate_name');
@@ -107,10 +115,12 @@ export default function ExamInstructionsPage() {
         }),
       });
 
-      // Save initial attempt payload into sessionStorage
+      // Save initial attempt payload and mark active attempt
+      localStorage.setItem(`active_attempt_${rawCode}`, payload.attemptId);
       sessionStorage.setItem(`attempt_${payload.attemptId}`, JSON.stringify(payload));
 
-      router.push(`/exam/${rawCode}/take?attemptId=${payload.attemptId}`);
+      // Use replace so candidate cannot go back in browser history to instructions
+      router.replace(`/exam/${rawCode}/take?attemptId=${payload.attemptId}`);
     } catch (err: any) {
       setError(err.message || 'Failed to initialize examination session');
     } finally {
@@ -291,6 +301,13 @@ export default function ExamInstructionsPage() {
                 </div>
               );
             })}
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-center gap-2.5">
+            <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+            <span>
+              <strong>Track Selection Rule:</strong> Once you click &quot;Start Examination&quot;, your selected programming language track will be <strong>permanently locked</strong> and cannot be changed during the assessment.
+            </span>
           </div>
         </div>
 

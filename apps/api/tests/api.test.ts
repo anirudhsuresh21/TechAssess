@@ -285,6 +285,35 @@ Bad Row,Short,INVALID_CAT,None,EASY,SINGLE_CHOICE,"A|B",A,1`;
       expect(res.body.data.attemptId).toBe(attemptId);
     });
 
+    it('should prevent candidate from changing programming language track once attempt has started', async () => {
+      const res = await request(app)
+        .patch(`/api/v1/attempts/${attemptId}/language`)
+        .send({
+          selectedLanguage: 'Python',
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.error).toContain('Changing programming language track is not permitted');
+    });
+
+    it('should ensure candidate examination question list has zero duplicate questions', async () => {
+      const res = await request(app)
+        .get(`/api/v1/attempts/${attemptId}`);
+
+      expect(res.status).toBe(200);
+      const questions = res.body.data.questions;
+      expect(questions.length).toBeGreaterThan(0);
+
+      // Verify zero duplicate question IDs
+      const qIds = questions.map((q: any) => q._id);
+      expect(new Set(qIds).size).toBe(qIds.length);
+
+      // Verify zero duplicate question signatures (title + text)
+      const sigs = questions.map((q: any) => (q.title + ':::' + q.text).toLowerCase().trim());
+      expect(new Set(sigs).size).toBe(sigs.length);
+    });
+
     it('should autosave candidate answers reliably on server with PUT /:id/answers/:questionId', async () => {
       const res = await request(app)
         .put(`/api/v1/attempts/${attemptId}/answers/${testQuestionId}`)

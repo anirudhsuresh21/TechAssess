@@ -155,6 +155,67 @@ export async function updateAssessment(id: string, data: any, userId?: string, i
   return assessment;
 }
 
+
+export function deduplicatePaperSections(rawSections: any[]): any[] {
+  const paperQuestionIds = new Set<string>();
+  const paperQuestionSignatures = new Set<string>();
+
+  const getSig = (q: any) =>
+    (
+      (q.title || '').trim() +
+      ':::' +
+      (q.text || '').trim() +
+      ':::' +
+      (q.codeSnippet || '').trim()
+    ).toLowerCase();
+
+  return rawSections.map((sec) => {
+    // 1. Deduplicate common questions in this section against the entire paper
+    const uniqueCommonQuestions: any[] = [];
+    for (const q of sec.questions || []) {
+      const qId = q._id.toString();
+      const sig = getSig(q);
+      if (!paperQuestionIds.has(qId) && !paperQuestionSignatures.has(sig)) {
+        paperQuestionIds.add(qId);
+        paperQuestionSignatures.add(sig);
+        uniqueCommonQuestions.push(q);
+      }
+    }
+
+    // 2. Deduplicate language tracks in this section
+    const deduplicatedLanguageOptions: Record<string, any[]> = {};
+    if (sec.hasLanguageTracks && sec.languageOptions) {
+      for (const [lang, qList] of Object.entries(sec.languageOptions as Record<string, any[]>)) {
+        const uniqueTrackQuestions: any[] = [];
+        const trackIds = new Set<string>();
+        const trackSignatures = new Set<string>();
+
+        for (const q of qList || []) {
+          const qId = q._id.toString();
+          const sig = getSig(q);
+          if (
+            !paperQuestionIds.has(qId) &&
+            !paperQuestionSignatures.has(sig) &&
+            !trackIds.has(qId) &&
+            !trackSignatures.has(sig)
+          ) {
+            trackIds.add(qId);
+            trackSignatures.add(sig);
+            uniqueTrackQuestions.push(q);
+          }
+        }
+        deduplicatedLanguageOptions[lang] = uniqueTrackQuestions;
+      }
+    }
+
+    return {
+      ...sec,
+      questions: uniqueCommonQuestions,
+      languageOptions: deduplicatedLanguageOptions,
+    };
+  });
+}
+
 export async function publishAssessment(id: string, userId?: string, ipAddress?: string) {
   const assessment = await Assessment.findById(id).populate('sections.questionIds');
   if (!assessment) {
@@ -166,39 +227,49 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
     throw new AppError('Cannot publish an assessment with zero sections', 400);
   }
 
-  let totalQuestionsCount = 0;
-  const versionSections = [];
+  const rawVersionSections = [];
+
+  const extractQId = (id: any): string => {
+    if (!id) return '';
+    if (typeof id === 'object' && id._id) return id._id.toString();
+    if (typeof id === 'object' && id.id) return id.id.toString();
+    return String(id);
+  };
 
   for (const section of assessment.sections) {
-    if (!section.questionIds || section.questionIds.length === 0) {
+    const uniqueCommonIds = Array.from(new Set((section.questionIds || []).map(extractQId))).filter(Boolean);
+    if (uniqueCommonIds.length === 0) {
       throw new AppError(`Section "${section.name}" has no questions assigned`, 400);
     }
-    totalQuestionsCount += section.questionIds.length;
 
     // Fetch full question data
     const questionDocs = await Question.find({
-      _id: { $in: section.questionIds },
+      _id: { $in: uniqueCommonIds },
       isArchived: false,
     }).lean();
 
-    if (questionDocs.length !== section.questionIds.length) {
+    if (questionDocs.length !== uniqueCommonIds.length) {
       throw new AppError(`Some questions in section "${section.name}" are archived or missing`, 400);
     }
 
     const langSnapshotMap: Record<string, any[]> = {};
     if (section.hasLanguageTracks && section.languageOptions) {
       for (const [lang, qIds] of Object.entries(section.languageOptions as Record<string, any>)) {
-        if (Array.isArray(qIds) && qIds.length > 0) {
+        const uniqueTrackIds = Array.from(new Set(((qIds as any[]) || []).map(extractQId))).filter((id: string) => Boolean(id) && !uniqueCommonIds.includes(id));
+
+        if (uniqueTrackIds.length > 0) {
           const langDocs = await Question.find({
-            _id: { $in: qIds },
+            _id: { $in: uniqueTrackIds },
             isArchived: false,
           }).lean();
           langSnapshotMap[lang] = langDocs;
+        } else {
+          langSnapshotMap[lang] = [];
         }
       }
     }
 
-    versionSections.push({
+    rawVersionSections.push({
       name: section.name,
       category: section.category,
       description: section.description,
@@ -208,6 +279,15 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
       languageOptions: langSnapshotMap,
     });
   }
+
+  // Strictly deduplicate questions within the published question paper
+  const versionSections = deduplicatePaperSections(rawVersionSections);
+
+  const totalQuestionsCount = versionSections.reduce((acc, s) => {
+    const trackCounts = Object.values(s.languageOptions || {}).map((q: any) => q.length);
+    const maxTrack = trackCounts.length > 0 ? Math.max(...trackCounts) : 0;
+    return acc + s.questions.length + maxTrack;
+  }, 0);
 
   if (totalQuestionsCount === 0) {
     throw new AppError('Cannot publish an assessment without any questions', 400);
@@ -219,24 +299,28 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
   const snapshotSets: any[] = [];
   if (assessment.sets && assessment.sets.length > 0) {
     for (const set of assessment.sets) {
-      const setSections = [];
+      const rawSetSections = [];
       for (const section of (set.sections || [])) {
+        const uniqueCommonIds = Array.from(new Set((section.questionIds || []).map(extractQId))).filter(Boolean);
         const qDocs = await Question.find({
-          _id: { $in: section.questionIds },
+          _id: { $in: uniqueCommonIds },
           isArchived: false,
         }).lean();
 
         const setLangMap: Record<string, any[]> = {};
         if (section.hasLanguageTracks && section.languageOptions) {
           for (const [lang, qIds] of Object.entries(section.languageOptions as Record<string, any>)) {
-            if (Array.isArray(qIds) && qIds.length > 0) {
-              const langDocs = await Question.find({ _id: { $in: qIds }, isArchived: false }).lean();
+            const uniqueTrackIds = Array.from(new Set(((qIds as any[]) || []).map(extractQId))).filter((id: string) => Boolean(id) && !uniqueCommonIds.includes(id));
+            if (uniqueTrackIds.length > 0) {
+              const langDocs = await Question.find({ _id: { $in: uniqueTrackIds }, isArchived: false }).lean();
               setLangMap[lang] = langDocs;
+            } else {
+              setLangMap[lang] = [];
             }
           }
         }
 
-        setSections.push({
+        rawSetSections.push({
           name: section.name,
           category: section.category,
           description: section.description,
@@ -246,11 +330,16 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
           languageOptions: setLangMap,
         });
       }
+
+      const deduplicatedSetSections = deduplicatePaperSections(
+        rawSetSections.length > 0 ? rawSetSections : versionSections
+      );
+
       snapshotSets.push({
         setCode: set.setCode || 'A',
         name: set.name || `Set ${set.setCode || 'A'}`,
         description: set.description,
-        sections: setSections.length > 0 ? setSections : versionSections,
+        sections: deduplicatedSetSections,
       });
     }
   } else {
@@ -265,23 +354,25 @@ export async function publishAssessment(id: string, userId?: string, ipAddress?:
       setCode: 'B',
       name: 'Set B',
       description: 'Alternate Question Paper (Set B)',
-      sections: versionSections.map(s => {
-        const reversedLangOptions: Record<string, any[]> = {};
-        if (s.languageOptions) {
-          for (const [lang, list] of Object.entries(s.languageOptions)) {
-            reversedLangOptions[lang] = [...list].reverse();
+      sections: deduplicatePaperSections(
+        versionSections.map((s) => {
+          const reversedLangOptions: Record<string, any[]> = {};
+          if (s.languageOptions) {
+            for (const [lang, list] of Object.entries(s.languageOptions)) {
+              reversedLangOptions[lang] = [...((list as any[]) || [])].reverse();
+            }
           }
-        }
-        return {
-          name: s.name,
-          category: s.category,
-          description: s.description,
-          timeLimitMinutes: s.timeLimitMinutes,
-          questions: [...s.questions].reverse(),
-          hasLanguageTracks: s.hasLanguageTracks,
-          languageOptions: reversedLangOptions,
-        };
-      }),
+          return {
+            name: s.name,
+            category: s.category,
+            description: s.description,
+            timeLimitMinutes: s.timeLimitMinutes,
+            questions: [...s.questions].reverse(),
+            hasLanguageTracks: s.hasLanguageTracks,
+            languageOptions: reversedLangOptions,
+          };
+        })
+      ),
     });
   }
 

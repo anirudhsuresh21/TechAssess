@@ -50,8 +50,14 @@ export default function CandidateLoginPage() {
     retry: false,
   });
 
-  // Check if candidate is already verified in this session
+  // Check if candidate is already in an active examination
   useEffect(() => {
+    const activeAttempt = localStorage.getItem(`active_attempt_${rawCode}`);
+    if (activeAttempt) {
+      router.replace(`/exam/${rawCode}/take?attemptId=${activeAttempt}`);
+      return;
+    }
+
     const savedRoll = localStorage.getItem('candidate_roll');
     const savedName = localStorage.getItem('candidate_name');
     const savedId = localStorage.getItem('candidate_id');

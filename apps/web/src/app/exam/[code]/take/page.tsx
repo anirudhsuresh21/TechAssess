@@ -38,8 +38,7 @@ export default function LiveExaminationPage() {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [candidateInfo, setCandidateInfo] = useState<{ name: string; roll: string } | null>(null);
 
-  // Language track change modal state
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
+  // Language track is permanently locked once examination starts
 
   useEffect(() => {
     const name = localStorage.getItem('candidate_name');
@@ -56,16 +55,64 @@ export default function LiveExaminationPage() {
   // Authoritative server-calculated remaining seconds
   const [remainingSeconds, setRemainingSeconds] = useState<number | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSubmittingRef = useRef(false);
   const [showSubmitModal, setShowSubmitModal] = useState(false);
 
   // Focus loss & anti-cheating warning modal
   const [integrityWarning, setIntegrityWarning] = useState<string | null>(null);
   const [focusLossCount, setFocusLossCount] = useState(0);
 
+  // Navigation lock warning modal
+  const [showBackWarning, setShowBackWarning] = useState(false);
+
   // Debounce timer for autosave
   const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // 1. Fetch initial or refreshed attempt state
+  // 1. Navigation Lock: Prevent returning to instructions or previous pages
+  useEffect(() => {
+    if (attemptId && rawCode) {
+      localStorage.setItem(`active_attempt_${rawCode}`, attemptId);
+    }
+
+    // Push barrier state into history so the back button cannot leave the examination
+    window.history.pushState({ page: 'exam_take' }, '', window.location.href);
+
+    const handlePopState = () => {
+      // Re-push state to trap navigation and keep candidate on the exam screen
+      window.history.pushState({ page: 'exam_take' }, '', window.location.href);
+      setShowBackWarning(true);
+    };
+
+    window.addEventListener('popstate', handlePopState);
+
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!isSubmittingRef.current) {
+        e.preventDefault();
+        e.returnValue = 'You have an active examination session. Navigating away may be recorded as a violation.';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Intercept Alt + Left Arrow
+      if (e.altKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        setShowBackWarning(true);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [attemptId, rawCode]);
+
+  // 2. Fetch initial or refreshed attempt state
   useEffect(() => {
     if (!attemptId) {
       router.push(`/exam/${rawCode}`);
@@ -75,6 +122,13 @@ export default function LiveExaminationPage() {
     async function loadAttempt() {
       try {
         const payload: CandidateAttemptPayload = await apiRequest(`/attempts/${attemptId}`);
+        if (payload.status === 'SUBMITTED' || payload.status === 'EVALUATED' || payload.status === 'EXPIRED') {
+          isSubmittingRef.current = true;
+          localStorage.removeItem(`active_attempt_${rawCode}`);
+          router.replace(`/exam/${rawCode}/submitted?attemptId=${attemptId}`);
+          return;
+        }
+
         setAttemptData(payload);
         setAnswers(payload.savedAnswers || {});
 
@@ -85,13 +139,18 @@ export default function LiveExaminationPage() {
         setRemainingSeconds(diffSecs);
       } catch (err: any) {
         console.error('Failed to load attempt state:', err);
+        if (err.message && (err.message.includes('already submitted') || err.message.includes('expired'))) {
+          isSubmittingRef.current = true;
+          localStorage.removeItem(`active_attempt_${rawCode}`);
+          router.replace(`/exam/${rawCode}/submitted?attemptId=${attemptId}`);
+        }
       }
     }
 
     loadAttempt();
   }, [attemptId, rawCode, router]);
 
-  // 2. Countdown timer interval
+  // 3. Countdown timer interval
   useEffect(() => {
     if (remainingSeconds === null) return;
 
@@ -107,7 +166,7 @@ export default function LiveExaminationPage() {
     return () => clearInterval(interval);
   }, [remainingSeconds]);
 
-  // 3. Anti-Cheating: Page Visibility and Window Blur monitoring
+  // 4. Anti-Cheating: Page Visibility and Window Blur monitoring
   useEffect(() => {
     if (!attemptId || !attemptData) return;
 
@@ -118,6 +177,8 @@ export default function LiveExaminationPage() {
       setIntegrityWarning(res.warning);
 
       if (res.autoSubmitted || res.focusLossCount >= 3) {
+        isSubmittingRef.current = true;
+        localStorage.removeItem(`active_attempt_${rawCode}`);
         setIntegrityWarning(
           res.warning || 'Maximum integrity violations reached (3/3). Your examination has been automatically submitted for administrator review.'
         );
@@ -125,7 +186,7 @@ export default function LiveExaminationPage() {
           sessionStorage.setItem(`result_${attemptId}`, JSON.stringify(res.submissionResult));
         }
         setTimeout(() => {
-          router.push(`/exam/${rawCode}/submitted?attemptId=${attemptId}&violation=true`);
+          router.replace(`/exam/${rawCode}/submitted?attemptId=${attemptId}&violation=true`);
         }, 2500);
       }
     };
@@ -343,6 +404,7 @@ export default function LiveExaminationPage() {
   const handleFinalSubmit = async (isAutoExpired = false) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
+    isSubmittingRef.current = true;
 
     try {
       const res = await apiRequest(`/attempts/${attemptId}/submit`, {
@@ -350,33 +412,21 @@ export default function LiveExaminationPage() {
         body: JSON.stringify({ isAutoExpired }),
       });
 
-      // Save submission result and redirect
+      // Clear active examination token
+      localStorage.removeItem(`active_attempt_${rawCode}`);
+
+      // Save submission result and redirect using replace so back navigation cannot re-enter
       sessionStorage.setItem(`result_${attemptId}`, JSON.stringify(res));
-      router.push(`/exam/${rawCode}/submitted?attemptId=${attemptId}`);
+      router.replace(`/exam/${rawCode}/submitted?attemptId=${attemptId}`);
     } catch (err: any) {
       console.error('Final submission error:', err);
       setIsSubmitting(false);
+      isSubmittingRef.current = false;
       setShowSubmitModal(false);
     }
   };
 
-  // Switch candidate programming language track dynamically
-  const handleSwitchLanguage = async (newLang: string) => {
-    if (!attemptId) return;
-    try {
-      const updatedPayload: CandidateAttemptPayload = await apiRequest(`/attempts/${attemptId}/language`, {
-        method: 'PATCH',
-        body: JSON.stringify({ selectedLanguage: newLang }),
-      });
-      setAttemptData(updatedPayload);
-      if (currentQuestionIndex >= updatedPayload.questions.length) {
-        setCurrentQuestionIndex(0);
-      }
-      setShowLanguageModal(false);
-    } catch (err: any) {
-      console.error('Failed to change language:', err);
-    }
-  };
+
 
   if (!attemptData || !currentQuestion) {
     return (
@@ -428,18 +478,16 @@ export default function LiveExaminationPage() {
                 <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
                 <span>{attemptData.setName ? attemptData.setName.toUpperCase() : `SET ${attemptData.assignedSet || 'A'}`}</span>
               </div>
-              {/* Programming Language Track Badge & Switcher */}
+              {/* Programming Language Track Badge (Locked during examination) */}
               {attemptData.selectedLanguage && (
-                <button
-                  type="button"
-                  onClick={() => setShowLanguageModal(true)}
-                  title="Click to change programming track"
-                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-purple-50 hover:bg-purple-100 border border-purple-200 text-purple-700 font-mono font-bold text-xs shadow-sm transition"
+                <div
+                  title="Programming language track is locked for the duration of the examination"
+                  className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-purple-50 border border-purple-200 text-purple-700 font-mono font-bold text-xs shadow-sm"
                 >
                   <Code2 className="w-3 h-3 text-purple-600" />
                   <span>Track: {attemptData.selectedLanguage}</span>
-                  <span className="text-[9px] underline text-purple-500 font-normal">Change</span>
-                </button>
+                  <span className="text-[9px] text-purple-600 font-medium ml-0.5">🔒 Locked</span>
+                </div>
               )}
             </div>
             <div className="text-[10px] text-slate-500 flex items-center gap-2 mt-0.5">
@@ -814,7 +862,11 @@ export default function LiveExaminationPage() {
             {focusLossCount >= 3 ? (
               <button
                 type="button"
-                onClick={() => router.push(`/exam/${rawCode}/submitted?attemptId=${attemptId}&violation=true`)}
+                onClick={() => {
+                  isSubmittingRef.current = true;
+                  localStorage.removeItem(`active_attempt_${rawCode}`);
+                  router.replace(`/exam/${rawCode}/submitted?attemptId=${attemptId}&violation=true`);
+                }}
                 className="w-full bg-rose-600 hover:bg-rose-700 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm"
               >
                 Proceed to Examination Summary
@@ -887,72 +939,31 @@ export default function LiveExaminationPage() {
         </div>
       )}
 
-      {/* Switch Programming Language Modal */}
-      {showLanguageModal && (
+      {/* Navigation Locked Warning Modal */}
+      {showBackWarning && (
         <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
-            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <Code2 className="w-5 h-5 text-purple-600" />
-                <h3 className="text-sm font-bold text-slate-900">
-                  Change Programming Language Track
-                </h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowLanguageModal(false)}
-                className="p-1 rounded-lg text-slate-400 hover:text-slate-700"
-              >
-                <X className="w-4 h-4" />
-              </button>
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-md w-full p-6 text-center space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center mx-auto border bg-amber-50 text-amber-600 border-amber-200">
+              <ShieldAlert className="w-6 h-6" />
             </div>
-
-            <p className="text-xs text-slate-600">
-              Select the programming language track you want to attempt. Questions for your selected language will immediately replace the previous language track:
-            </p>
-
-            <div className="grid grid-cols-2 gap-2.5 pt-1">
-              {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => {
-                const isSelected = attemptData.selectedLanguage === lang;
-                const icons: Record<string, string> = {
-                  Java: '☕',
-                  JavaScript: '🟨',
-                  Python: '🐍',
-                  C: '🔷',
-                  'C++': '⚡',
-                  'C#': '🟣',
-                };
-
-                return (
-                  <button
-                    key={lang}
-                    type="button"
-                    onClick={() => handleSwitchLanguage(lang)}
-                    className={`p-3 rounded-xl border text-xs font-bold transition flex items-center justify-between ${
-                      isSelected
-                        ? 'bg-purple-50 border-purple-500 text-purple-900 shadow-sm'
-                        : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                    }`}
-                  >
-                    <span className="flex items-center gap-2">
-                      <span>{icons[lang] || '💻'}</span>
-                      <span>{lang}</span>
-                    </span>
-                    {isSelected && <span className="text-purple-600 font-bold">✓</span>}
-                  </button>
-                );
-              })}
+            <div className="space-y-1.5">
+              <h3 className="text-base font-bold text-slate-900">
+                Navigation Locked During Examination
+              </h3>
+              <p className="text-xs text-slate-600 leading-relaxed">
+                Returning to previous pages or instructions is disabled once an examination session has begun. Please remain on this screen to complete your assessment.
+              </p>
             </div>
-
-            <div className="pt-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowLanguageModal(false)}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                Close
-              </button>
+            <div className="p-3 rounded-xl border text-[11px] bg-slate-50 border-slate-200 text-slate-700 text-left font-mono">
+              💡 Tip: Use the question navigation grid in the sidebar to jump directly between questions.
             </div>
+            <button
+              type="button"
+              onClick={() => setShowBackWarning(false)}
+              className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-2.5 rounded-xl text-xs transition shadow-sm"
+            >
+              Continue Examination
+            </button>
           </div>
         </div>
       )}

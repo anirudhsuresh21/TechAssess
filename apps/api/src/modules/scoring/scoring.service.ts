@@ -52,12 +52,28 @@ export function evaluateAttemptAnswers(
     let sectionAnswered = 0;
     let sectionCorrect = 0;
 
-    // Combine common questions and language-specific questions if language tracks enabled
-    let sectionQuestions = [...(section.questions || [])];
+    // Combine common questions and language-specific questions with strict deduplication
+    const sectionQuestions: any[] = [];
+    const seenSecQIds = new Set<string>();
+
+    (section.questions || []).forEach((q: any) => {
+      const qId = q._id.toString();
+      if (!seenSecQIds.has(qId)) {
+        seenSecQIds.add(qId);
+        sectionQuestions.push(q);
+      }
+    });
+
     if (section.hasLanguageTracks && section.languageOptions) {
       const langKey = selectedLanguage || 'Java';
       const langQuestions = section.languageOptions[langKey] || [];
-      sectionQuestions.push(...langQuestions);
+      langQuestions.forEach((q: any) => {
+        const qId = q._id.toString();
+        if (!seenSecQIds.has(qId)) {
+          seenSecQIds.add(qId);
+          sectionQuestions.push(q);
+        }
+      });
     }
 
     for (const question of sectionQuestions) {

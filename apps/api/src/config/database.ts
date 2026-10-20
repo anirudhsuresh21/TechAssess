@@ -44,8 +44,9 @@ export async function connectDatabase(): Promise<void> {
     try {
       mongoose.set('strictQuery', true);
       await mongoose.connect(uri, {
-        serverSelectionTimeoutMS: 5000,
+        serverSelectionTimeoutMS: 8000,
         autoIndex: !isProd,
+        dbName: 'techassess',
       });
       logger.info(`Successfully connected to MongoDB at ${uri.replace(/\/\/.*@/, '//***@')}`);
     } catch (err: any) {
