@@ -7,6 +7,7 @@ import {
   getQuestionByIdHandler,
   updateQuestionHandler,
   archiveQuestionHandler,
+  deleteQuestionHandler,
   duplicateQuestionHandler,
   downloadTemplateHandler,
   validateImportHandler,
@@ -32,6 +33,7 @@ router.get('/', requireAuth, getQuestionsHandler);
 router.get('/:id', requireAuth, getQuestionByIdHandler);
 router.patch('/:id', requireAuth, validateBody(UpdateQuestionSchema), updateQuestionHandler);
 router.put('/:id', requireAuth, validateBody(UpdateQuestionSchema), updateQuestionHandler);
+router.delete('/:id', requireAuth, deleteQuestionHandler);
 router.post('/:id/archive', requireAuth, archiveQuestionHandler);
 router.post('/:id/duplicate', requireAuth, duplicateQuestionHandler);
 

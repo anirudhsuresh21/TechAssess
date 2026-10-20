@@ -11,24 +11,37 @@ import {
   AlertCircle,
   FileText,
   Sparkles,
+  Code2,
 } from 'lucide-react';
 import { apiRequest } from '@/lib/api';
+import { SUPPORTED_PROGRAMMING_LANGUAGES } from '@techassess/shared';
+
+const LANGUAGE_BADGES: Record<string, { label: string; icon: string }> = {
+  Java: { label: 'Java', icon: '☕' },
+  JavaScript: { label: 'JavaScript', icon: '🟨' },
+  Python: { label: 'Python', icon: '🐍' },
+  C: { label: 'C', icon: '🔷' },
+  'C++': { label: 'C++', icon: '⚡' },
+  'C#': { label: 'C#', icon: '🟣' },
+};
 
 export default function BulkImportQuestionsPage() {
   const router = useRouter();
   const [csvContent, setCsvContent] = useState('');
   const [fileName, setFileName] = useState('');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [isValidating, setIsValidating] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [validationResult, setValidationResult] = useState<any>(null);
   const [error, setError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  const sampleCsv = `title,text,category,topic,difficulty,type,options,correctOptions,marks,negativeMarks,explanation,numericalAnswer
-Ratio and Proportion of Storage,If storage allocation ratio is 3:5 and total is 800GB, what is the larger share?,NUMERICAL_APTITUDE,Ratio & Proportion,EASY,SINGLE_CHOICE,"300 GB|400 GB|500 GB|600 GB",500 GB,2,0.5,Total parts = 8. 5/8 * 800 = 500 GB.,
-Hexadecimal Memory Address,Convert hex 0x1F to decimal value.,NUMERICAL_APTITUDE,Number Conversions,EASY,NUMERICAL,,,2,0.5,1*16 + 15 = 31.,31
-HTTP Secure Port,What standard port is used for encrypted HTTPS web traffic?,COMPUTER_FUNDAMENTALS,Networks,EASY,SINGLE_CHOICE,"80|443|8080|22",443,1,0.25,HTTPS default port is 443.,
-Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len(x))",PROGRAMMING_DEBUGGING,Python Basics,EASY,SINGLE_CHOICE,"2|3|4|Error",3,2,0.5,Appending 3 makes length 3.,`;
+  const sampleCsv = `title,text,category,topic,difficulty,type,programmingLanguage,options,correctOptions,marks,negativeMarks,explanation,numericalAnswer
+Ratio and Proportion of Storage,If storage allocation ratio is 3:5 and total is 800GB, what is the larger share?,NUMERICAL_APTITUDE,Ratio & Proportion,EASY,SINGLE_CHOICE,,"300 GB|400 GB|500 GB|600 GB",500 GB,2,0.5,Total parts = 8. 5/8 * 800 = 500 GB.,
+Hexadecimal Memory Address,Convert hex 0x1F to decimal value.,NUMERICAL_APTITUDE,Number Conversions,EASY,NUMERICAL,,,,2,0.5,1*16 + 15 = 31.,31
+HTTP Secure Port,What standard port is used for encrypted HTTPS web traffic?,COMPUTER_FUNDAMENTALS,Networks,EASY,SINGLE_CHOICE,,"80|443|8080|22",443,1,0.25,HTTPS default port is 443.,
+Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len(x))",PROGRAMMING_DEBUGGING,Python Basics,EASY,SINGLE_CHOICE,Python,"2|3|4|Error",3,2,0.5,Appending 3 makes length 3.,
+Java String Length,"What does s.length() return for String s = \"Hello\"?",PROGRAMMING_DEBUGGING,Java Basics,EASY,SINGLE_CHOICE,Java,"4|5|6|Error",5,2,0.5,String length is 5.,`;
 
   const handleDownloadTemplate = () => {
     const blob = new Blob([sampleCsv], { type: 'text/csv' });
@@ -49,12 +62,13 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
     reader.onload = (event) => {
       const content = event.target?.result as string;
       setCsvContent(content);
-      validateContent(content);
+      validateContent(content, selectedLanguage);
     };
     reader.readAsText(file);
   };
 
-  const validateContent = async (content: string) => {
+  const validateContent = async (content: string, langOverride?: string) => {
+    const langToUse = langOverride !== undefined ? langOverride : selectedLanguage;
     setIsValidating(true);
     setError('');
     setValidationResult(null);
@@ -62,13 +76,23 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
     try {
       const res = await apiRequest('/questions/import/validate', {
         method: 'POST',
-        body: JSON.stringify({ csvContent: content }),
+        body: JSON.stringify({
+          csvContent: content,
+          defaultLanguage: langToUse || undefined,
+        }),
       });
       setValidationResult(res);
     } catch (err: any) {
       setError(err.message || 'CSV validation failed');
     } finally {
       setIsValidating(false);
+    }
+  };
+
+  const handleLanguageChange = (lang: string) => {
+    setSelectedLanguage(lang);
+    if (csvContent.trim()) {
+      validateContent(csvContent, lang);
     }
   };
 
@@ -79,7 +103,11 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
     try {
       const res = await apiRequest('/questions/import/commit', {
         method: 'POST',
-        body: JSON.stringify({ csvContent, skipErrors }),
+        body: JSON.stringify({
+          csvContent,
+          skipErrors,
+          defaultLanguage: selectedLanguage || undefined,
+        }),
       });
 
       setSuccessMessage(`Successfully imported ${res.importedCount} questions into the bank!`);
@@ -140,6 +168,66 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
         </div>
       )}
 
+      {/* Target Programming Language Selector Card */}
+      <div className="bg-white border border-slate-200 rounded-2xl p-5 space-y-3 shadow-sm">
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+            <Code2 className="w-4 h-4" />
+          </div>
+          <div>
+            <h2 className="text-xs font-bold text-slate-900">
+              Programming Language Track Tagging (Optional)
+            </h2>
+            <p className="text-[11px] text-slate-500">
+              Select a programming language to apply to all questions in this upload (or leave on Auto to detect from the CSV).
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 pt-1">
+          <button
+            type="button"
+            onClick={() => handleLanguageChange('')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition border flex items-center gap-1.5 ${
+              selectedLanguage === ''
+                ? 'bg-slate-900 text-white border-slate-900 shadow-sm'
+                : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'
+            }`}
+          >
+            <span>🌐 Auto / From CSV (or Common)</span>
+          </button>
+
+          {SUPPORTED_PROGRAMMING_LANGUAGES.map((lang) => {
+            const isSelected = selectedLanguage === lang;
+            const badge = LANGUAGE_BADGES[lang] || { icon: '💻' };
+            return (
+              <button
+                key={lang}
+                type="button"
+                onClick={() => handleLanguageChange(lang)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition border flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-purple-700 text-white border-purple-700 shadow-sm ring-2 ring-purple-300'
+                    : 'bg-purple-50/60 text-purple-900 border-purple-200 hover:bg-purple-100'
+                }`}
+              >
+                <span>{badge.icon}</span>
+                <span>{lang}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {selectedLanguage && (
+          <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 text-purple-950 text-xs flex items-center gap-2">
+            <span className="font-bold">Active Track:</span>
+            <span>
+              All imported questions in this batch will be tagged as <strong>{selectedLanguage}</strong> track unless a specific language is defined in a CSV row.
+            </span>
+          </div>
+        )}
+      </div>
+
       {/* File Upload Box */}
       <div className="bg-white border border-slate-200 rounded-2xl p-6 text-center space-y-4 shadow-sm">
         <div className="max-w-md mx-auto border-2 border-dashed border-slate-300 hover:border-orange-500 rounded-xl p-8 transition cursor-pointer relative bg-slate-50">
@@ -158,7 +246,7 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
                 {fileName ? fileName : 'Click or drag a CSV file here'}
               </p>
               <p className="text-[11px] text-slate-500 mt-1">
-                Formatted with columns: title, text, category, topic, difficulty, type, options, correctOptions, marks...
+                Columns: title, text, category, topic, difficulty, type, programmingLanguage, options, correctOptions, marks...
               </p>
             </div>
           </div>
@@ -183,7 +271,7 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
             value={csvContent}
             onChange={(e) => setCsvContent(e.target.value)}
             rows={5}
-            placeholder="title,text,category,topic,difficulty,type,options,correctOptions,marks,negativeMarks,explanation,numericalAnswer"
+            placeholder="title,text,category,topic,difficulty,type,programmingLanguage,options,correctOptions,marks,negativeMarks,explanation,numericalAnswer"
             className="w-full text-xs font-mono p-3 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 bg-white"
           />
         </div>
@@ -200,9 +288,11 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
               <span className="text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded font-bold">
                 ✓ {validationResult.validCount} Valid
               </span>
-              <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold">
-                ⚠ {validationResult.errorCount} Errors
-              </span>
+              {validationResult.errorCount > 0 && (
+                <span className="text-rose-700 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded font-bold">
+                  ⚠ {validationResult.errorCount} Errors
+                </span>
+              )}
             </div>
           </div>
 
@@ -238,10 +328,19 @@ Python List Append Output,"What is output of: x = [1, 2]; x.append(3); print(len
                 {validationResult.preview.map((q: any, i: number) => (
                   <div key={i} className="p-3 flex items-center justify-between">
                     <div>
-                      <div className="font-semibold text-slate-800">{q.title}</div>
-                      <div className="text-[11px] text-slate-500">{q.category} • {q.topic}</div>
+                      <div className="font-semibold text-slate-800 flex items-center gap-2">
+                        <span>{q.title}</span>
+                        {q.programmingLanguage && (
+                          <span className="text-[10px] px-2 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200 font-bold">
+                            {LANGUAGE_BADGES[q.programmingLanguage]?.icon || '💻'} {q.programmingLanguage} Track
+                          </span>
+                        )}
+                      </div>
+                      <div className="text-[11px] text-slate-500 mt-0.5">
+                        {q.category} • {q.topic}
+                      </div>
                     </div>
-                    <div className="text-[11px] font-mono text-orange-600 font-bold">
+                    <div className="text-[11px] font-mono text-orange-600 font-bold shrink-0">
                       {q.marks} Marks
                     </div>
                   </div>

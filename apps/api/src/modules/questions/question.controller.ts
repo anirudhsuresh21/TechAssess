@@ -5,6 +5,7 @@ import {
   getQuestionById,
   updateQuestion,
   archiveQuestion,
+  deleteQuestion,
   duplicateQuestion,
 } from './question.service';
 import {
@@ -98,6 +99,18 @@ export async function duplicateQuestionHandler(req: Request, res: Response, next
   }
 }
 
+export async function deleteQuestionHandler(req: Request, res: Response, next: NextFunction) {
+  try {
+    const result = await deleteQuestion(req.params.id, req.user?.userId, req.ip);
+    res.json({
+      success: true,
+      data: result,
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function downloadTemplateHandler(req: Request, res: Response) {
   const csv = generateCsvTemplate();
   res.setHeader('Content-Type', 'text/csv');
@@ -108,6 +121,8 @@ export async function downloadTemplateHandler(req: Request, res: Response) {
 export async function validateImportHandler(req: Request, res: Response, next: NextFunction) {
   try {
     let content = '';
+    const defaultLanguage = req.body?.defaultLanguage || req.body?.programmingLanguage;
+
     if (req.file) {
       content = req.file.buffer.toString('utf-8');
     } else if (req.body && (req.body.csvContent || req.body.content || req.body.csv)) {
@@ -116,7 +131,7 @@ export async function validateImportHandler(req: Request, res: Response, next: N
       throw new AppError('No CSV content or file provided for import validation', 400);
     }
 
-    const { validQuestions, errors } = parseAndValidateQuestions(content);
+    const { validQuestions, errors } = parseAndValidateQuestions(content, defaultLanguage);
     res.json({
       success: true,
       data: {
@@ -135,12 +150,18 @@ export async function validateImportHandler(req: Request, res: Response, next: N
 export async function importQuestionsHandler(req: Request, res: Response, next: NextFunction) {
   try {
     let content = '';
+    const defaultLanguage = req.body?.defaultLanguage || req.body?.programmingLanguage;
+
     if (req.file) {
       content = req.file.buffer.toString('utf-8');
     } else if (req.body && (req.body.csvContent || req.body.content || req.body.csv)) {
       content = req.body.csvContent || req.body.content || req.body.csv;
     } else if (Array.isArray(req.body.questions)) {
-      const inserted = await bulkInsertQuestions(req.body.questions, req.user?.userId, req.ip);
+      const preparedQuestions = req.body.questions.map((q: any) => ({
+        ...q,
+        programmingLanguage: q.programmingLanguage || defaultLanguage || undefined,
+      }));
+      const inserted = await bulkInsertQuestions(preparedQuestions, req.user?.userId, req.ip);
       return res.status(201).json({
         success: true,
         data: {
@@ -153,7 +174,7 @@ export async function importQuestionsHandler(req: Request, res: Response, next: 
       throw new AppError('No questions or CSV file provided for import', 400);
     }
 
-    const { validQuestions, errors } = parseAndValidateQuestions(content);
+    const { validQuestions, errors } = parseAndValidateQuestions(content, defaultLanguage);
     const allowPartial = Boolean(req.body.ignoreErrors || req.body.skipErrors);
 
     if (errors.length > 0 && !allowPartial) {

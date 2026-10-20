@@ -5,6 +5,7 @@ import {
   QuestionDifficulty,
   QuestionType,
   AuditAction,
+  SUPPORTED_PROGRAMMING_LANGUAGES,
 } from '@techassess/shared';
 import { Question } from './question.model';
 import { recordAudit } from '../audit/audit.service';
@@ -25,6 +26,7 @@ export function generateCsvTemplate(): string {
     'topic',
     'difficulty',
     'type',
+    'programmingLanguage',
     'options',
     'correctOptions',
     'numericalAnswer',
@@ -45,6 +47,7 @@ export function generateCsvTemplate(): string {
       'Profit and Loss',
       QuestionDifficulty.EASY,
       QuestionType.SINGLE_CHOICE,
+      '',
       '20%;25%;30%;15%',
       '2',
       '',
@@ -65,6 +68,7 @@ export function generateCsvTemplate(): string {
       QuestionType.NUMERICAL,
       '',
       '',
+      '',
       '22',
       '0',
       '',
@@ -81,6 +85,7 @@ export function generateCsvTemplate(): string {
       'HTTP & Web Protocols',
       QuestionDifficulty.EASY,
       QuestionType.SINGLE_CHOICE,
+      '',
       '200;401;403;404',
       '2',
       '',
@@ -99,6 +104,7 @@ export function generateCsvTemplate(): string {
       'Python Basics',
       QuestionDifficulty.MEDIUM,
       QuestionType.CODE_OUTPUT,
+      'Python',
       '1 2 3;0 1 2;Error;None',
       '2',
       '',
@@ -110,12 +116,34 @@ export function generateCsvTemplate(): string {
       'range(3) produces 0, 1, 2.',
       'python,loops',
     ],
+    [
+      'Java String Immutability',
+      'Which of the following statements is true regarding String objects in Java?',
+      QuestionCategory.PROGRAMMING_DEBUGGING,
+      'Java Strings',
+      QuestionDifficulty.EASY,
+      QuestionType.SINGLE_CHOICE,
+      'Java',
+      'Strings are immutable;Strings can be resized directly;Strings are primitive types;Strings are allocated on stack only',
+      '1',
+      '',
+      '0',
+      '',
+      '2',
+      '0.5',
+      'String s = "Hello"; s.concat(" World");',
+      'In Java, String objects are immutable in the String constant pool.',
+      'java,strings,oop',
+    ],
   ];
 
   return stringify([sampleHeaders, ...sampleRows]);
 }
 
-export function parseAndValidateQuestions(csvContent: string): {
+export function parseAndValidateQuestions(
+  csvContent: string,
+  defaultLanguage?: string
+): {
   validQuestions: any[];
   errors: RowValidationError[];
 } {
@@ -251,6 +279,26 @@ export function parseAndValidateQuestions(csvContent: string): {
       ? row.tags.split(',').map((t: string) => t.trim()).filter(Boolean)
       : [];
 
+    // Validate programming language if provided (either in row or via defaultLanguage)
+    const rawLang = (row.programmingLanguage || row.language || defaultLanguage || '').trim();
+    let programmingLanguage: string | undefined = undefined;
+
+    if (rawLang) {
+      const matched = SUPPORTED_PROGRAMMING_LANGUAGES.find(
+        (l) => l.toLowerCase() === rawLang.toLowerCase()
+      );
+      if (!matched) {
+        rowErrors.push({
+          row: rowNum,
+          field: 'programmingLanguage',
+          message: `Invalid programming language "${rawLang}". Supported options: ${SUPPORTED_PROGRAMMING_LANGUAGES.join(', ')}`,
+          value: rawLang,
+        });
+      } else {
+        programmingLanguage = matched;
+      }
+    }
+
     if (rowErrors.length > 0) {
       errors.push(...rowErrors);
     } else {
@@ -261,6 +309,7 @@ export function parseAndValidateQuestions(csvContent: string): {
         topic: row.topic || 'General',
         difficulty,
         type: row.type,
+        programmingLanguage: programmingLanguage || undefined,
         options: optionsList,
         numericalAnswer: numericalVal,
         numericalTolerance: parseFloat(row.numericalTolerance) || 0,

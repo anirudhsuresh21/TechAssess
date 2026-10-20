@@ -125,7 +125,7 @@ export async function updateQuestion(id: string, data: any) {
   return question;
 }
 
-export async function archiveQuestion(id: string) {
+export async function archiveQuestion(id: string, userId?: string, ipAddress?: string) {
   const question = await Question.findByIdAndUpdate(
     id,
     { isArchived: true },
@@ -134,7 +134,41 @@ export async function archiveQuestion(id: string) {
   if (!question) {
     throw new AppError('Question not found', 404);
   }
+
+  if (userId) {
+    await recordAudit({
+      userId: new mongoose.Types.ObjectId(userId),
+      action: AuditAction.QUESTION_ARCHIVED,
+      resourceType: 'Question',
+      resourceId: id,
+      details: { title: question.title, category: question.category },
+      ipAddress,
+    });
+  }
+
   return question;
+}
+
+export async function deleteQuestion(id: string, userId?: string, ipAddress?: string) {
+  const question = await Question.findById(id);
+  if (!question) {
+    throw new AppError('Question not found', 404);
+  }
+
+  await Question.findByIdAndDelete(id);
+
+  if (userId) {
+    await recordAudit({
+      userId: new mongoose.Types.ObjectId(userId),
+      action: AuditAction.QUESTION_DELETED,
+      resourceType: 'Question',
+      resourceId: id,
+      details: { title: question.title, category: question.category },
+      ipAddress,
+    });
+  }
+
+  return { message: 'Question permanently deleted successfully', id };
 }
 
 export async function duplicateQuestion(id: string, userId?: string) {
@@ -154,3 +188,4 @@ export async function duplicateQuestion(id: string, userId?: string) {
 
   return Question.create(duplicateData);
 }
+

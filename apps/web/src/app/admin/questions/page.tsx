@@ -81,6 +81,9 @@ export default function QuestionBankPage() {
     { id: 'opt_4', text: '', isCorrect: false },
   ]);
 
+  // 4. Permanent Delete Question Modal State
+  const [questionToDelete, setQuestionToDelete] = useState<any | null>(null);
+
   // Query: Fetch Questions
   const { data: questions, isLoading } = useQuery({
     queryKey: ['questions', categoryFilter, difficultyFilter, typeFilter, languageFilter, searchTerm, limit],
@@ -114,6 +117,23 @@ export default function QuestionBankPage() {
       queryClient.invalidateQueries({ queryKey: ['questions'] });
       if (selectedQuestion) setSelectedQuestion(null);
       setTimeout(() => setActionMessage(''), 4000);
+    },
+  });
+
+  // Mutation: Permanent Delete Question
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => apiRequest(`/questions/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      setActionMessage('Question permanently deleted.');
+      queryClient.invalidateQueries({ queryKey: ['questions'] });
+      if (selectedQuestion) setSelectedQuestion(null);
+      setQuestionToDelete(null);
+      setTimeout(() => setActionMessage(''), 4000);
+    },
+    onError: (err: any) => {
+      setActionMessage(`Delete failed: ${err.message || 'Error deleting question'}`);
+      setQuestionToDelete(null);
+      setTimeout(() => setActionMessage(''), 5000);
     },
   });
 
@@ -467,9 +487,20 @@ export default function QuestionBankPage() {
                         archiveMutation.mutate(q._id);
                       }}
                       title="Archive question"
-                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                      className="p-1 rounded text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition"
                     >
                       <Archive className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setQuestionToDelete(q);
+                      }}
+                      title="Permanently delete question"
+                      className="p-1 rounded text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
                     </button>
                   </div>
                 </div>
@@ -624,26 +655,41 @@ export default function QuestionBankPage() {
             </div>
 
             {/* Modal Bottom Buttons */}
-            <div className="flex items-center justify-end gap-2.5 pt-2">
+            <div className="flex items-center justify-between pt-2">
               <button
                 type="button"
                 onClick={() => {
                   const q = selectedQuestion;
                   setSelectedQuestion(null);
-                  handleOpenEdit(q);
+                  setQuestionToDelete(q);
                 }}
-                className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5"
+                className="px-3.5 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-xs border border-rose-200 transition flex items-center gap-1.5"
               >
-                <Pencil className="w-3.5 h-3.5" />
-                <span>Edit Question &amp; Marks</span>
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Question</span>
               </button>
-              <button
-                type="button"
-                onClick={() => setSelectedQuestion(null)}
-                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
-              >
-                Close
-              </button>
+
+              <div className="flex items-center gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const q = selectedQuestion;
+                    setSelectedQuestion(null);
+                    handleOpenEdit(q);
+                  }}
+                  className="px-4 py-2 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>Edit Question &amp; Marks</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedQuestion(null)}
+                  className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1149,6 +1195,60 @@ export default function QuestionBankPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal 4: Permanent Delete Confirmation Pop-Up */}
+      {questionToDelete && (
+        <div className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-md p-6 space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-1">
+                <h3 className="text-sm font-bold text-slate-900">Permanently Delete Question?</h3>
+                <p className="text-xs text-slate-500">
+                  This will completely remove the question from the database. This action cannot be undone.
+                </p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 space-y-1">
+              <div className="font-bold text-slate-900 truncate">{questionToDelete.title}</div>
+              <div className="text-[11px] text-slate-500 flex items-center gap-2">
+                <span>{questionToDelete.category}</span>
+                <span>•</span>
+                <span className="font-mono text-orange-600 font-semibold">{questionToDelete.marks} Marks</span>
+                {questionToDelete.programmingLanguage && (
+                  <>
+                    <span>•</span>
+                    <span className="px-1.5 py-0.5 rounded text-[10px] bg-purple-100 text-purple-800 font-bold">
+                      {questionToDelete.programmingLanguage} Track
+                    </span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setQuestionToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={deleteMutation.isPending}
+                onClick={() => deleteMutation.mutate(questionToDelete._id)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5"
+              >
+                {deleteMutation.isPending ? 'Deleting...' : 'Delete Permanently'}
+              </button>
+            </div>
           </div>
         </div>
       )}
